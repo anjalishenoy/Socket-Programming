@@ -1,7 +1,3 @@
-/*#include <stdlib.h>		//For memset
-#include <stdio.h>
-#include <sys/socket.h>	//for sockaddr_in*/
-
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -55,8 +51,6 @@ struct sFileHash_response
 	char time_modified[128];
 };
 
-
-// globals
 struct sFileHash_response sFileHash_response;
 struct sFileHash sFileHash;
 int client()
