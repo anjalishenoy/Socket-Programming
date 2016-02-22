@@ -15,6 +15,8 @@
 #include <time.h>
 #include "md5.h"
 
+#define LENGTH 1000
+
 // FileDownload=0, FileUpload=1, FileHash=2, IndexGet=3
 typedef enum
 {	FileDownload, FileUpload, FileHash,	IndexGet } CMD;
@@ -43,17 +45,15 @@ struct sFileHash
 
 struct sFileHash_response
 {
-	char filename[128];
+	char fileName[128];
 	MD5_CTX md5Context;
 	char time_modified[128];
 };
 
 struct sFileHash_response sFileHash_response;
 struct sFileHash sFileHash;
-int client()
-{
-	struct sockaddr_in server_addr, client_addr;
-}
+
+
 
 int main()
 {

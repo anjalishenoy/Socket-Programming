@@ -1,6 +1,6 @@
 CC = gcc
 CFLAGS = -w 
-PROG = peer
+PROG = main
 
 SRCS = main.c md5.c
 
