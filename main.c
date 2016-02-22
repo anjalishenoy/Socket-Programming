@@ -53,7 +53,7 @@ struct sFileHash_response
 struct sFileHash_response sFileHash_response;
 struct sFileHash sFileHash;
 
-
+int server(int portNo, int fdUpload);
 
 int main()
 {
