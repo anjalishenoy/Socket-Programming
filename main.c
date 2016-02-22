@@ -86,7 +86,7 @@ int client(int portnum, int fd1, char *IP)
 {
 	int n = 0, listenfd = 0, serverfd = 0;;
 	char *srecvBuff, *crecvBuff;
-	char ssendBuff[1025], csendBuff[1025];		//Buffer for server and client
+	char ssendBuff[1025], clientInput[1025];		//Buffer for server and client
 	struct sockaddr_in serverAddress, clientAddress;
 	char line[1000];
 	struct Operation cFileDownload;
@@ -95,12 +95,12 @@ int client(int portnum, int fd1, char *IP)
 	struct Operation sFileUpload;
 
 	memset(&clientAddress, '0', sizeof(clientAddress));
-	memset(csendBuff, '0', sizeof(csendBuff));
+	memset(clientInput, '0', sizeof(clientInput));
 	memset(ssendBuff, '0', sizeof(ssendBuff));
 
-	serverAddress.sin_family = AF_INET;
-	serverAddress.sin_port = htons(portnum);
-	serverAddress.sin_addr.s_addr = inet_addr(IP);
+	serverAddress.sin_family = AF_INET;		//IPv4
+	serverAddress.sin_port = htons(portnum);		//Ntwork ordering
+	serverAddress.sin_addr.s_addr = inet_addr(IP);		//conversion to binary of an IP
 
 	if((serverfd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
 	{
@@ -108,41 +108,42 @@ int client(int portnum, int fd1, char *IP)
 		return 1;
 	}
 	else
-		printf("created socket\n");
+		printf("Ceated socket\n");
 	
-	int timeout=0;
-	while((connect(serverfd,(struct sockaddr *) &serverAddress, sizeof(serverAddress)) < 0) && timeout < 5000)
+	int check=0;
+
+	while((connect(serverfd,(struct sockaddr *) &serverAddress, sizeof(serverAddress)) < 0) && check < 100)
 	{
-		timeout++;
+		check++;
 		sleep(1);
 	}
 
-	printf("Connect to server on port %d successful\n", portnum);
+	printf("Connection to server on port %d successful\n", portnum);
 
 	while(1)
 	{
-		scanf("%s", csendBuff);	//scanning for inputs
-		printf("Received command : %s\n", csendBuff);
+		scanf("%s", clientInput);	//scanning for inputs
+		//printf("Received command : %s\n", clientInput);
 
-		if(strcmp(csendBuff, "FileUploadDeny") == 0)
+		if(strcmp(clientInput, "FileUploadDeny") == 0)
 		{
-			printf("REJECTING!!!!!!!\n");
+			printf("REJECTING\n");
 			write(fd1, "FileUploadDeny",(strlen("FileUploadDeny") + 1));
 		}
 
-		if(strcmp(csendBuff, "FileUploadAllow") == 0)
+		if(strcmp(clientInput, "FileUploadAllow") == 0)
 			write(fd1, "FileUploadAllow",(strlen("FileUploadAllow") + 1));
 
-		if(strcmp(csendBuff, "FileDownload") == 0)
+		if(strcmp(clientInput, "FileDownload") == 0)
 		{
 			cFileDownload.command = FileDownload;
 			scanf("%s", cFileDownload.fileName);
 			printf("Dowloading file %s ...\n", cFileDownload.fileName);
 			int command = FileDownload;
 			if((n = write(serverfd, &command, sizeof(int))) == -1)
-				printf("Failed to send command %s\n", csendBuff);
+				printf("Failed to send command %s\n", clientInput);
 			else
-				printf("Command sent: %d %s\n", n, csendBuff);
+				printf("Command sent: %d %s\n", n, clientInput);
 
 			if(write(serverfd, &cFileDownload, sizeof(cFileDownload)) == -1)
 				printf("Failed to send        cFileDownload\n");
@@ -201,7 +202,7 @@ int client(int portnum, int fd1, char *IP)
 			n = 0;
 		}
 
-		else if(strcmp(csendBuff, "FileHash") == 0)
+		else if(strcmp(clientInput, "FileHash") == 0)
 		{
 
 			struct sFileHash_response cFileHash_response;
@@ -227,9 +228,9 @@ int client(int portnum, int fd1, char *IP)
 
 		    //sending command name
 			if((n = write(serverfd, &command, sizeof(int))) == -1)
-				printf("Failed to send command %s\n", csendBuff);
+				printf("Failed to send command %s\n", clientInput);
 			else
-				printf("Command sent: %d %s\n", n, csendBuff);
+				printf("Command sent: %d %s\n", n, clientInput);
 
 		    // send cFileHash with the the information
 			if(write(serverfd, &cFileHash, sizeof(cFileHash)) == -1)
@@ -289,7 +290,7 @@ int client(int portnum, int fd1, char *IP)
 			}
 		}
 
-		else if(strcmp(csendBuff, "FileUpload") == 0)
+		else if(strcmp(clientInput, "FileUpload") == 0)
 		{
 
 			cFileUpload.command = FileUpload;
@@ -300,9 +301,9 @@ int client(int portnum, int fd1, char *IP)
 
 		    //sending command name
 			if((n = write(serverfd, &command, sizeof(int))) == -1)
-				printf("Failed to send command %s\n", csendBuff);
+				printf("Failed to send command %s\n", clientInput);
 			else
-				printf("Command sent: %d %s\n", n, csendBuff);
+				printf("Command sent: %d %s\n", n, clientInput);
 
 		    //opening the file
 			char temp[100];
@@ -375,7 +376,7 @@ int client(int portnum, int fd1, char *IP)
 			n = 0;
 		}
 
-		else if(strcmp(csendBuff, "IndexGet") == 0)
+		else if(strcmp(clientInput, "IndexGet") == 0)
 		{
 			char opt[1000];
 			char *filelist;
@@ -389,9 +390,9 @@ int client(int portnum, int fd1, char *IP)
 			time_t timt1, timt2;
 			char regex[100], fname[1000];
 			if((n = write(serverfd, &command, sizeof(int))) == -1)
-				printf("Failed to send command %s\n", csendBuff);
+				printf("Failed to send command %s\n", clientInput);
 			else
-				printf("Command sent: %d %s\n", n, csendBuff);
+				printf("Command sent: %d %s\n", n, clientInput);
 			
 			scanf("%s", opt);
 			puts(opt);
