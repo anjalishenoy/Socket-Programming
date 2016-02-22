@@ -15,26 +15,23 @@
 #include <time.h>
 #include "md5.h"
 
+// FileDownload=0, FileUpload=1, FileHash=2, IndexGet=3
 typedef enum
 {	FileDownload, FileUpload, FileHash,	IndexGet } CMD;
 
+//To hold details of files being shown
 struct sIndexGet
 {
 	CMD command;
-	struct stat fileDetails;
+	struct stat fileDetails;		//from stat()
 	char fileName[1000];
 };
 
-struct sFileDownload
+//To send/receive to/from server/client for upload/download
+struct Operation
 {
 	CMD command;
 	char fileName[1000];
-};
-
-struct sFileUpload
-{
-	CMD command;
-	char fileName[100];
 };
 
 struct sFileHash
