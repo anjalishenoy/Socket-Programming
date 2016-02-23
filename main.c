@@ -84,7 +84,7 @@ time_t gettime(char *T)
 }
 
 
-int client(int portnum, int fd1, char *IP)
+int client(int portnum, int fd1, char *IP, int type)
 {
 	int n = 0, serverfd = 0, command, size, fr_block_sz, num_responses,i;
 	char *srecvBuff, *crecvBuff;
@@ -101,7 +101,8 @@ int client(int portnum, int fd1, char *IP)
 	serverAddress.sin_port = htons(portnum);		//Ntwork ordering
 	serverAddress.sin_addr.s_addr = inet_addr(IP);		//conversion to binary of an IP
 
-	if((serverfd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+	serverfd = socket(AF_INET, SOCK_STREAM, 0);
+	if(serverfd < 0)
 	{
 		printf("\nError creating socket \n");
 		return 1;
@@ -124,7 +125,7 @@ int client(int portnum, int fd1, char *IP)
 		scanf("%s", clientInput);	//scanning for inputs
 		//printf("Received command : %s\n", clientInput);
 
-		if(strcmp(clientInput, "FileUploadDeny") == 0)
+		/*if(strcmp(clientInput, "FileUploadDeny") == 0)
 		{
 			printf("REJECTING\n");
 			//Write to file descriptor
@@ -135,7 +136,7 @@ int client(int portnum, int fd1, char *IP)
 		{
 			printf("ALLOWING\n");
 			write(fd1, "FileUploadAllow",(strlen("FileUploadAllow") + 1));
-		}
+		}*/
 
 		if(strcmp(clientInput, "FileDownload") == 0)
 		{
