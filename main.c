@@ -84,19 +84,13 @@ time_t gettime(char *T)
 
 int client(int portnum, int fd1, char *IP)
 {
-	int n = 0, listenfd = 0, serverfd = 0;;
+	int n = 0, serverfd = 0, command, size, fr_block_sz;
 	char *srecvBuff, *crecvBuff;
-	char ssendBuff[1025], clientInput[1025];		//Buffer for server and client
-	struct sockaddr_in serverAddress, clientAddress;
+	char clientInput[1025];		//Buffer for server and client
+	struct sockaddr_in serverAddress;
 	char line[1000];
 	struct Operation cFileDownload;
-	struct Operation sFileDownload;
 	struct Operation cFileUpload;
-	struct Operation sFileUpload;
-
-	memset(&clientAddress, '0', sizeof(clientAddress));
-	memset(clientInput, '0', sizeof(clientInput));
-	memset(ssendBuff, '0', sizeof(ssendBuff));
 
 	serverAddress.sin_family = AF_INET;		//IPv4
 	serverAddress.sin_port = htons(portnum);		//Ntwork ordering
@@ -128,48 +122,57 @@ int client(int portnum, int fd1, char *IP)
 		if(strcmp(clientInput, "FileUploadDeny") == 0)
 		{
 			printf("REJECTING\n");
+			//Write to file descriptor
 			write(fd1, "FileUploadDeny",(strlen("FileUploadDeny") + 1));
 		}
 
 		if(strcmp(clientInput, "FileUploadAllow") == 0)
+		{
+			printf("ALLOWING\n");
 			write(fd1, "FileUploadAllow",(strlen("FileUploadAllow") + 1));
+		}
 
 		if(strcmp(clientInput, "FileDownload") == 0)
 		{
 			cFileDownload.command = FileDownload;
 			scanf("%s", cFileDownload.fileName);
 			printf("Dowloading file %s ...\n", cFileDownload.fileName);
-			int command = FileDownload;
-			if((n = write(serverfd, &command, sizeof(int))) == -1)
+			command = FileDownload;
+
+			//Send command to server
+			n = write(serverfd, &command, sizeof(int));
+			if(n == -1)
 				printf("Failed to send command %s\n", clientInput);
 			else
 				printf("Command sent: %d %s\n", n, clientInput);
 
-			if(write(serverfd, &cFileDownload, sizeof(cFileDownload)) == -1)
-				printf("Failed to send        cFileDownload\n");
+			//Send cFileDownload
+			n=write(serverfd, &cFileDownload, sizeof(cFileDownload));
+			if(n == -1)
+				printf("Failed to send cFileDownload\n");
 			else
 				printf("Sent cFileDownload %s\n", cFileDownload.fileName);
 
-			char revbuf[LENGTH];
-			printf("Receiveing file from Server ...\n");
+			printf("Receiving file from Server ...\n");
 
 			char temp[100];
 			strcpy(temp, "./shared/");
 			strcat(temp, cFileDownload.fileName);
-			FILE *fr = fopen(temp, "w+");
-			if(fr == NULL)
+			FILE *f = fopen(temp, "w+");
+
+			//Creating file to copy downloaded contents
+			if(f == NULL)
 			{
 				printf("Error creating file %s\n", temp);
-				return 0;
+				return 1;
 			}
 			else
 				printf("created file %s\n", temp);
-			bzero(revbuf, LENGTH);
-			int fr_block_sz = 0;
+			fr_block_sz = 0;
 		    // receive the file size
-			int size = 0;
-			if((fr_block_sz =
-				recv(serverfd, &size, sizeof(int), 0)) != sizeof(int))
+			size = 0;
+			fr_block_sz =recv(serverfd, &size, sizeof(int), 0);
+			if(fr_block_sz!= sizeof(int))
 			{
 				printf("Error reading size of file %s\n", temp);
 				return 0;
@@ -178,13 +181,14 @@ int client(int portnum, int fd1, char *IP)
 				printf("Received size of file %d\n", size);
 
 			int recvdsize = 0;
+			//Buffer to receive data from server
 			crecvBuff =(char *) malloc(size * sizeof(char));
+
 		    // save original pointer to calculate MD5
 			while((fr_block_sz = recv(serverfd, crecvBuff, LENGTH, 0)) > 0)
 			{
 				crecvBuff[fr_block_sz] = 0;
-				int write_sz =
-				fwrite(crecvBuff, sizeof(char), fr_block_sz, fr);
+				int write_sz =fwrite(crecvBuff, sizeof(char), fr_block_sz, f);	//Write to fileptr f
 				crecvBuff += fr_block_sz;
 				if(write_sz == -1)
 				{
@@ -198,7 +202,7 @@ int client(int portnum, int fd1, char *IP)
 					break;
 			}
 			printf("done!\n");
-			fclose(fr);
+			fclose(f);
 			n = 0;
 		}
 
@@ -209,7 +213,7 @@ int client(int portnum, int fd1, char *IP)
 			struct sFileHash cFileHash;
 			struct stat vstat;
 			int num_responses;
-			int command = FileHash;
+			command = FileHash;
 			int i;
 
 		    // set the FileHash command
@@ -227,7 +231,8 @@ int client(int portnum, int fd1, char *IP)
 			}
 
 		    //sending command name
-			if((n = write(serverfd, &command, sizeof(int))) == -1)
+		    n = write(serverfd, &command, sizeof(int));
+			if(n == -1)
 				printf("Failed to send command %s\n", clientInput);
 			else
 				printf("Command sent: %d %s\n", n, clientInput);
@@ -240,9 +245,9 @@ int client(int portnum, int fd1, char *IP)
 					cFileHash.fileName);
 
 		    // receive number of file hash resposes to expect
-			if((n =
-				recv(serverfd, &num_responses, sizeof(num_responses),
-					0) != sizeof(num_responses)))
+		    n =recv(serverfd, &num_responses, sizeof(num_responses),0);
+		    //n==1 if VERIFY, and N if checkAll (N==number of files in directory)
+			if( n!= sizeof(num_responses))
 			{
 				printf("Error reading number of responses of file\n");
 				return 0;
@@ -253,11 +258,8 @@ int client(int portnum, int fd1, char *IP)
 		    // print each file hash response
 			for(i = 0; i < num_responses; i++)
 			{
-
-				if((n =
-					recv(serverfd, &cFileHash_response,
-						sizeof(cFileHash_response),
-						0) != sizeof(cFileHash_response)))
+				n =recv(serverfd, &cFileHash_response, sizeof(cFileHash_response),0);
+				if(n!= sizeof(cFileHash_response))
 				{
 					printf("Error reading cFileHash_response of file %s\n",
 						cFileHash.fileName);
@@ -265,10 +267,8 @@ int client(int portnum, int fd1, char *IP)
 				}
 				else
 				{
-					printf("Received cFileHash_response of file %s \n",
-						cFileHash_response.fileName);
-					printf("Last Modified @ %s\n",
-						cFileHash_response.time_modified);
+					printf("Received cFileHash_response of file %s \n", cFileHash_response.fileName);
+					printf("Last Modified @ %s\n",cFileHash_response.time_modified);
 					printf("MD5 %01x%01x%01x%01x%01x%01x%01x%01x%01x%01x%01x%01x%01x%01x%01x%01x\n\n",
 						cFileHash_response.md5Context.digest[0],
 						cFileHash_response.md5Context.digest[1],
@@ -297,7 +297,7 @@ int client(int portnum, int fd1, char *IP)
 			scanf("%s", cFileUpload.fileName);
 			printf("Uploading file %s ...\n", cFileUpload.fileName);
 
-			int command = FileUpload;
+			command = FileUpload;
 
 		    //sending command name
 			if((n = write(serverfd, &command, sizeof(int))) == -1)
@@ -330,11 +330,11 @@ int client(int portnum, int fd1, char *IP)
 			}
 
 			if(write(serverfd, &cFileUpload, sizeof(cFileUpload)) == -1)
-				printf("Failed to send        cFileUpload\n");
+				printf("Failed to send  cFileUpload\n");
 			else
 				printf("Sent cFileUpload %s\n", cFileUpload.fileName);
 
-			int size = vstat.st_size;
+			size = vstat.st_size;
 
 			if(send(serverfd, &size, sizeof(int), 0) < 0)
 			{
@@ -349,7 +349,7 @@ int client(int portnum, int fd1, char *IP)
 			if((n = read(serverfd, &result, sizeof(result))) <= 0)
 				printf("Error reading result\n");
 			printf("%s", result);
-			if(strcmp(result, "FileUploadDeny") == 0)
+			if(strcmp(result, "Deny") == 0)
 			{
 				printf("Upload denied.\n");
 				fclose(fs);
@@ -380,11 +380,10 @@ int client(int portnum, int fd1, char *IP)
 		{
 			char opt[1000];
 			char *filelist;
-			int command = IndexGet;
+			command = IndexGet;
 			struct stat vstat;
 			struct sIndexGet fstat;
 			int lenfiles = 0;
-			int fr_block_sz;
 			char buff[1000];
 			char t1[200], t2[200];
 			time_t timt1, timt2;
@@ -393,15 +392,14 @@ int client(int portnum, int fd1, char *IP)
 				printf("Failed to send command %s\n", clientInput);
 			else
 				printf("Command sent: %d %s\n", n, clientInput);
-			
 			scanf("%s", opt);
 			puts(opt);
 			if(strcmp(opt, "ShortList") == 0)
 			{
 				scanf("%s %s", t1, t2);
 				
-				//timt1 = gettime(t1);
-				//timt2 = gettime(t2);
+				timt1 = gettime(t1);
+				timt2 = gettime(t2);
 			}
 
 			if(strcmp(opt, "RegEx") == 0)
@@ -412,8 +410,7 @@ int client(int portnum, int fd1, char *IP)
 			}
 			FILE *fp = fopen("./res", "a");
 
-			if((fr_block_sz =
-				recv(serverfd, &lenfiles, sizeof(int), 0)) != sizeof(int))
+			if((fr_block_sz =recv(serverfd, &lenfiles, sizeof(int), 0)) != sizeof(int))
 			{
 				printf("Error reading number of file\n");
 				return 0;
@@ -424,9 +421,7 @@ int client(int portnum, int fd1, char *IP)
 
 			for(i = 0; i < lenfiles; i++)
 			{
-				if((n =
-					read(serverfd,(void *) &fstat,
-						sizeof(fstat))) != sizeof(fstat))
+				if((n =	read(serverfd,(void *) &fstat, sizeof(fstat))) != sizeof(fstat))
 					printf("Error reciving vstat\n");
 
 				if(strcmp(opt, "LongList") == 0)
