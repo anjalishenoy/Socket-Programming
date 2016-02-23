@@ -24,7 +24,6 @@ typedef enum
 //To hold details of files being shown
 struct sIndexGet
 {
-	CMD command;
 	struct stat fileDetails;		//from stat()
 	char fileName[1000];
 };
@@ -101,7 +100,8 @@ int client(int portnum, int fd1, char *IP, int type)
 	serverAddress.sin_port = htons(portnum);		//Ntwork ordering
 	serverAddress.sin_addr.s_addr = inet_addr(IP);		//conversion to binary of an IP
 
-	serverfd = socket(AF_INET, SOCK_STREAM, 0);
+	serverfd = socket(AF_INET, SOCK_STREAM, 0);			
+	//serverfd= socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);	for UDP
 	if(serverfd < 0)
 	{
 		printf("\nError creating socket \n");
@@ -212,87 +212,6 @@ int client(int portnum, int fd1, char *IP, int type)
 			n = 0;
 		}
 
-		else if(strcmp(clientInput, "FileHash") == 0)
-		{
-
-			struct FileHash_response cFileHash_response;
-			struct FileHash cFileHash;
-			command = FileHash;
-
-		    // set the FileHash command
-			cFileHash.command = FileHash;
-
-		    // get the type
-			scanf("%s", cFileHash.type);
-			printf("FileHash type %s ...\n", cFileHash.type);
-
-		    // get the fileName if Verify
-			if(strcmp(cFileHash.type, "Verify") == 0)
-			{
-				scanf("%s", cFileHash.fileName);
-				printf("FileHash file %s ...\n", cFileHash.fileName);
-			}
-
-		    //sending command name
-		    n = write(serverfd, &command, sizeof(int));
-			if(n == -1)
-				printf("Failed to send command %s\n", clientInput);
-			else
-				printf("Command sent: %d %s\n", n, clientInput);
-
-		    // send cFileHash with the the information
-			if(write(serverfd, &cFileHash, sizeof(cFileHash)) == -1)
-				printf("Failed to send cFileHash\n");
-			else
-				printf("Sent cFileHash %s %s \n", cFileHash.type,
-					cFileHash.fileName);
-
-		    // receive number of file hash resposes to expect
-		    n =recv(serverfd, &num_responses, sizeof(num_responses),0);
-
-		    //n==1 if VERIFY, and N if checkAll (N==number of files in directory)
-			if( n!= sizeof(num_responses))
-			{
-				printf("Error reading number of responses of file\n");
-				return 0;
-			}
-			else
-				printf("Expecting %d responses\n", num_responses);
-
-		    // print each file hash response
-			for(i = 0; i < num_responses; i++)
-			{
-				n =recv(serverfd, &cFileHash_response, sizeof(cFileHash_response),0);
-				if(n!= sizeof(cFileHash_response))
-				{
-					printf("Error reading cFileHash_response of file %s\n", cFileHash.fileName);
-					return 0;
-				}
-				else
-				{
-					printf("Received cFileHash_response of file %s \n", cFileHash_response.fileName);
-					printf("Last Modified @ %s\n",cFileHash_response.time_modified);
-					printf("MD5 %01x%01x%01x%01x%01x%01x%01x%01x%01x%01x%01x%01x%01x%01x%01x%01x\n\n",
-						cFileHash_response.md5Context.digest[0],
-						cFileHash_response.md5Context.digest[1],
-						cFileHash_response.md5Context.digest[2],
-						cFileHash_response.md5Context.digest[3],
-						cFileHash_response.md5Context.digest[4],
-						cFileHash_response.md5Context.digest[5],
-						cFileHash_response.md5Context.digest[6],
-						cFileHash_response.md5Context.digest[7],
-						cFileHash_response.md5Context.digest[8],
-						cFileHash_response.md5Context.digest[9],
-						cFileHash_response.md5Context.digest[10],
-						cFileHash_response.md5Context.digest[11],
-						cFileHash_response.md5Context.digest[12],
-						cFileHash_response.md5Context.digest[13],
-						cFileHash_response.md5Context.digest[14],
-						cFileHash_response.md5Context.digest[16]);
-				}
-			}
-		}
-
 		else if(strcmp(clientInput, "FileUpload") == 0)
 		{
 
@@ -378,9 +297,98 @@ int client(int portnum, int fd1, char *IP, int type)
 			n = 0;
 		}
 
+
+		else if(strcmp(clientInput, "FileHash") == 0)
+		{
+
+			struct FileHash_response cFileHash_response;
+			struct FileHash cFileHash;
+			command = FileHash;
+
+		    // set the FileHash command
+			cFileHash.command = FileHash;
+
+		    // get the type
+			scanf("%s", cFileHash.type);
+			printf("FileHash type %s ...\n", cFileHash.type);
+
+		    // get the fileName if Verify
+			if(strcmp(cFileHash.type, "Verify") == 0)
+			{
+				scanf("%s", cFileHash.fileName);
+				printf("FileHash file %s ...\n", cFileHash.fileName);
+			}
+
+		    //sending command name
+		    n = write(serverfd, &command, sizeof(int));
+			if(n == -1)
+				printf("Failed to send command %s\n", clientInput);
+			else
+				printf("Command sent: %d %s\n", n, clientInput);
+
+		    // send cFileHash with the the information
+			if(write(serverfd, &cFileHash, sizeof(cFileHash)) == -1)
+				printf("Failed to send cFileHash\n");
+			else
+				printf("Sent cFileHash %s %s \n", cFileHash.type,
+					cFileHash.fileName);
+
+		    // receive number of file hash resposes to expect
+		    n =recv(serverfd, &num_responses, sizeof(num_responses),0);
+
+		    //n==1 if VERIFY, and N if checkAll (N==number of files in directory)
+			if( n!= sizeof(num_responses))
+			{
+				printf("Error reading number of responses of file\n");
+				return 0;
+			}
+			else
+				printf("Expecting %d responses\n", num_responses);
+
+		    // print each file hash response
+		    MD5_CTX hash;
+			for(i = 0; i < num_responses; i++)
+			{
+				n=recv(serverfd, &hash, sizeof(hash),0);
+				if(n!=sizeof(hash))
+				{
+					printf("Error reading hash sent from server\n");
+					return 0;
+				}
+
+				n =recv(serverfd, &cFileHash_response, sizeof(cFileHash_response),0);
+				if(n!= sizeof(cFileHash_response))
+				{
+					printf("Error reading cFileHash_response of file %s\n", cFileHash.fileName);
+					return 0;
+				}
+				else
+				{
+					printf("Received cFileHash_response of file %s \n", cFileHash_response.fileName);
+					printf("Last Modified @ %s\n",cFileHash_response.time_modified);
+					printf("MD5 %01x%01x%01x%01x%01x%01x%01x%01x%01x%01x%01x%01x%01x%01x%01x%01x\n\n",
+						cFileHash_response.md5Context.digest[0],
+						cFileHash_response.md5Context.digest[1],
+						cFileHash_response.md5Context.digest[2],
+						cFileHash_response.md5Context.digest[3],
+						cFileHash_response.md5Context.digest[4],
+						cFileHash_response.md5Context.digest[5],
+						cFileHash_response.md5Context.digest[6],
+						cFileHash_response.md5Context.digest[7],
+						cFileHash_response.md5Context.digest[8],
+						cFileHash_response.md5Context.digest[9],
+						cFileHash_response.md5Context.digest[10],
+						cFileHash_response.md5Context.digest[11],
+						cFileHash_response.md5Context.digest[12],
+						cFileHash_response.md5Context.digest[13],
+						cFileHash_response.md5Context.digest[14],
+						cFileHash_response.md5Context.digest[16]);
+				}
+			}
+		}
 		else if(strcmp(clientInput, "IndexGet") == 0)
 		{
-			char opt[1000];
+			char option[1000];
 			char *filelist;
 			command = IndexGet;
 			struct sIndexGet fstat;
@@ -393,9 +401,9 @@ int client(int portnum, int fd1, char *IP, int type)
 				printf("Failed to send command %s\n", clientInput);
 			else
 				printf("Command sent: %d %s\n", n, clientInput);
-			scanf("%s", opt);
-			puts(opt);
-			if(strcmp(opt, "ShortList") == 0)
+			scanf("%s", option);
+			puts(option);
+			if(strcmp(option, "ShortList") == 0)
 			{
 				scanf("%s %s", t1, t2);
 				
@@ -403,10 +411,10 @@ int client(int portnum, int fd1, char *IP, int type)
 				timt2 = gettime(t2);
 			}
 
-			if(strcmp(opt, "RegEx") == 0)
+			if(strcmp(option, "RegEx") == 0)
 			{
 				system("touch res");
-				scanf("%s", regex);
+				scanf("%s", regex);		//inputting the regex
 
 			}
 			FILE *fp = fopen("./res", "a");
@@ -418,14 +426,13 @@ int client(int portnum, int fd1, char *IP, int type)
 			}
 			else
 				printf("Recieved number of files %d\n", lenfiles);
-			int i;
 
 			for(i = 0; i < lenfiles; i++)
 			{
 				if((n =	read(serverfd,(void *) &fstat, sizeof(fstat))) != sizeof(fstat))
 					printf("Error reciving vstat\n");
 
-				if(strcmp(opt, "LongList") == 0)
+				if(strcmp(option, "LongList") == 0)
 				{
 					printf("Filename: ");
 					puts(fstat.fileName);
@@ -435,11 +442,10 @@ int client(int portnum, int fd1, char *IP, int type)
 					printf("Time Modified: %s\n", buff);
 				}
 
-				else if(strcmp(opt, "ShortList") == 0)
+				else if(strcmp(option, "ShortList") == 0)
 				{
 					vstat = fstat.fileDetails;
-					if(difftime(vstat.st_mtime, timt1) >= 0
-						&& difftime(timt2, vstat.st_mtime) >= 0)
+					if(difftime(vstat.st_mtime, timt1) >= 0	&& difftime(timt2, vstat.st_mtime) >= 0)
 					{
 						printf("Filename: ");
 						puts(fstat.fileName);
@@ -450,7 +456,7 @@ int client(int portnum, int fd1, char *IP, int type)
 					}
 				}
 
-				else if(strcmp(opt, "RegEx") == 0)
+				else if(strcmp(option, "RegEx") == 0)
 				{
 
 					fwrite(fstat.fileName, 1, strlen(fstat.fileName), fp);
@@ -458,7 +464,7 @@ int client(int portnum, int fd1, char *IP, int type)
 				}
 			}
 			fclose(fp);
-			if(strcmp(opt, "RegEx") == 0)
+			if(strcmp(option, "RegEx") == 0)
 			{
 				char call[10000];
 				strcpy(call, "cat res | grep -E ");
