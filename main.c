@@ -36,23 +36,22 @@ struct Operation
 	char fileName[1000];
 };
 
-
-struct sFileHash
+struct FileHash
 {
 	CMD command;
 	char type[1000];
 	char fileName[100];
 };
 
-struct sFileHash_response
+struct FileHash_response
 {
 	char fileName[128];
 	MD5_CTX md5Context;
 	char time_modified[128];
 };
 
-struct sFileHash_response sFileHash_response;
-struct sFileHash sFileHash;
+struct FileHash_response sFileHash_response;
+struct FileHash sFileHash;
 
 int server(int portNo, int fdUpload); // Prototype
 
@@ -87,13 +86,16 @@ time_t gettime(char *T)
 
 int client(int portnum, int fd1, char *IP)
 {
-	int n = 0, serverfd = 0, command, size, fr_block_sz;
+	int n = 0, serverfd = 0, command, size, fr_block_sz, num_responses;
 	char *srecvBuff, *crecvBuff;
 	char clientInput[1025];		//Buffer for server and client
+
 	struct sockaddr_in serverAddress;
 	char line[1000];
 	struct Operation cFileDownload;
 	struct Operation cFileUpload;
+	struct stat vstat;
+
 
 	serverAddress.sin_family = AF_INET;		//IPv4
 	serverAddress.sin_port = htons(portnum);		//Ntwork ordering
@@ -212,10 +214,8 @@ int client(int portnum, int fd1, char *IP)
 		else if(strcmp(clientInput, "FileHash") == 0)
 		{
 
-			struct sFileHash_response cFileHash_response;
-			struct sFileHash cFileHash;
-			struct stat vstat;
-			int num_responses;
+			struct FileHash_response cFileHash_response;
+			struct FileHash cFileHash;
 			command = FileHash;
 			int i;
 
@@ -249,6 +249,7 @@ int client(int portnum, int fd1, char *IP)
 
 		    // receive number of file hash resposes to expect
 		    n =recv(serverfd, &num_responses, sizeof(num_responses),0);
+
 		    //n==1 if VERIFY, and N if checkAll (N==number of files in directory)
 			if( n!= sizeof(num_responses))
 			{
@@ -264,8 +265,7 @@ int client(int portnum, int fd1, char *IP)
 				n =recv(serverfd, &cFileHash_response, sizeof(cFileHash_response),0);
 				if(n!= sizeof(cFileHash_response))
 				{
-					printf("Error reading cFileHash_response of file %s\n",
-						cFileHash.fileName);
+					printf("Error reading cFileHash_response of file %s\n", cFileHash.fileName);
 					return 0;
 				}
 				else
@@ -323,7 +323,6 @@ int client(int portnum, int fd1, char *IP)
 
 			int block;
 			char *readbuf;
-			struct stat vstat;
 
 		    // get size of file
 			if(stat(temp, &vstat) == -1)
@@ -384,7 +383,6 @@ int client(int portnum, int fd1, char *IP)
 			char opt[1000];
 			char *filelist;
 			command = IndexGet;
-			struct stat vstat;
 			struct sIndexGet fstat;
 			int lenfiles = 0;
 			char buff[1000];
