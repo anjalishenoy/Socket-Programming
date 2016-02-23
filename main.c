@@ -36,6 +36,7 @@ struct Operation
 	char fileName[1000];
 };
 
+
 struct sFileHash
 {
 	CMD command;
@@ -52,6 +53,8 @@ struct sFileHash_response
 
 struct sFileHash_response sFileHash_response;
 struct sFileHash sFileHash;
+
+int server(int portNo, int fdUpload); // Prototype
 
 //function to convert input time to normal time
 time_t gettime(char *T)
@@ -239,7 +242,7 @@ int client(int portnum, int fd1, char *IP)
 
 		    // send cFileHash with the the information
 			if(write(serverfd, &cFileHash, sizeof(cFileHash)) == -1)
-				printf("Failed to send    cFileHash\n");
+				printf("Failed to send cFileHash\n");
 			else
 				printf("Sent cFileHash %s %s \n", cFileHash.type,
 					cFileHash.fileName);
@@ -467,12 +470,12 @@ int client(int portnum, int fd1, char *IP)
 			}
 
 		}
-
 		n = 0;
 		sleep(1);
 	}
 	return 0;
 }
+
 int main()
 {
 	//CMD c;
