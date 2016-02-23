@@ -86,7 +86,7 @@ time_t gettime(char *T)
 
 int client(int portnum, int fd1, char *IP)
 {
-	int n = 0, serverfd = 0, command, size, fr_block_sz, num_responses;
+	int n = 0, serverfd = 0, command, size, fr_block_sz, num_responses,i;
 	char *srecvBuff, *crecvBuff;
 	char clientInput[1025];		//Buffer for server and client
 
@@ -217,7 +217,6 @@ int client(int portnum, int fd1, char *IP)
 			struct FileHash_response cFileHash_response;
 			struct FileHash cFileHash;
 			command = FileHash;
-			int i;
 
 		    // set the FileHash command
 			cFileHash.command = FileHash;
@@ -351,7 +350,7 @@ int client(int portnum, int fd1, char *IP)
 			if((n = read(serverfd, &result, sizeof(result))) <= 0)
 				printf("Error reading result\n");
 			printf("%s", result);
-			if(strcmp(result, "Deny") == 0)
+			if(strcmp(result, "FileUploadDeny") == 0)
 			{
 				printf("Upload denied.\n");
 				fclose(fs);
