@@ -35,7 +35,7 @@ struct Operation
 	char fileName[1000];
 };
 
-struct FileHash
+struct hashFile
 {
 	CMD command;
 	char type[1000];
@@ -50,7 +50,7 @@ struct FileHash_response
 };
 
 struct FileHash_response sFileHash_response;
-struct FileHash sFileHash;
+struct hashFile sFileHash;
 
 int server(int portNo, int fdUpload); // Prototype
 
@@ -86,7 +86,7 @@ time_t gettime(char *T)
 int client(int portnum, int fd1, char *IP, int type)
 {
 	int n = 0, serverfd = 0, command, size, fr_block_sz, num_responses,i;
-	char *srecvBuff, *crecvBuff;
+	char *srecvBuff, *receiveBuffer;
 	char clientInput[1025];		//Buffer for server and client
 
 	struct sockaddr_in serverAddress;
@@ -148,18 +148,14 @@ int client(int portnum, int fd1, char *IP, int type)
 			//Send command to server
 			n = write(serverfd, &command, sizeof(int));
 			if(n == -1)
-				printf("Failed to send command %s\n", clientInput);
-			else
-				printf("Command sent: %d %s\n", n, clientInput);
+				printf("Failure in sending command %s. Retry!\n", clientInput);
 
 			//Send cFileDownload
 			n=write(serverfd, &cFileDownload, sizeof(cFileDownload));
 			if(n == -1)
 				printf("Failed to send cFileDownload\n");
-			else
-				printf("Sent cFileDownload %s\n", cFileDownload.fileName);
 
-			printf("Receiving file from Server ...\n");
+			printf("....Receiving file from server.... \n");
 
 			char temp[100];
 			strcpy(temp, "./shared/");
@@ -172,42 +168,42 @@ int client(int portnum, int fd1, char *IP, int type)
 				printf("Error creating file %s\n", temp);
 				return 1;
 			}
-			else
-				printf("created file %s\n", temp);
-			fr_block_sz = 0;
-		    // receive the file size
-			size = 0;
+			/*else
+				printf("created file %s\n", temp);*/
+			
+			fr_block_sz = 0; size = 0;
+
+			// receive the file size
 			fr_block_sz =recv(serverfd, &size, sizeof(int), 0);
 			if(fr_block_sz!= sizeof(int))
 			{
 				printf("Error reading size of file %s\n", temp);
 				return 0;
 			}
-			else
-				printf("Received size of file %d\n", size);
 
-			int recvdsize = 0;
+			int receivedSize = 0;
 			//Buffer to receive data from server
-			crecvBuff =(char *) malloc(size * sizeof(char));
+			receiveBuffer =(char *) malloc(size * sizeof(char));
 
 		    // save original pointer to calculate MD5
-			while((fr_block_sz = recv(serverfd, crecvBuff, LENGTH, 0)) > 0)
+			while((fr_block_sz = recv(serverfd, receiveBuffer, LENGTH, 0)) > 0)
 			{
-				crecvBuff[fr_block_sz] = 0;
-				int write_sz =fwrite(crecvBuff, sizeof(char), fr_block_sz, f);	//Write to fileptr f
-				crecvBuff += fr_block_sz;
+				receiveBuffer[fr_block_sz] = 0;
+				int write_sz =fwrite(receiveBuffer, sizeof(char), fr_block_sz, f);	//Write to fileptr f
+				receiveBuffer += fr_block_sz;
 				if(write_sz == -1)
 				{
 					printf("Error writing to file %s\n", temp);
 					return 0;
 				}
 
-				recvdsize += fr_block_sz;
-				printf("%d\n", recvdsize);
-				if(recvdsize >= size)
+				receivedSize += fr_block_sz;
+				printf("Amount of size received: %d\n", receivedSize);
+				if(receivedSize >= size)
 					break;
 			}
-			printf("done!\n");
+			printf("Done receiving file!\n");
+			//close the file
 			fclose(f);
 			n = 0;
 		}
@@ -217,34 +213,29 @@ int client(int portnum, int fd1, char *IP, int type)
 
 			cFileUpload.command = FileUpload;
 			scanf("%s", cFileUpload.fileName);
-			printf("Uploading file %s ...\n", cFileUpload.fileName);
+			printf(".....Uploading file %s ....\n", cFileUpload.fileName);
 
 			command = FileUpload;
 
 		    //sending command name
 			if((n = write(serverfd, &command, sizeof(int))) == -1)
 				printf("Failed to send command %s\n", clientInput);
-			else
-				printf("Command sent: %d %s\n", n, clientInput);
 
 		    //opening the file
-			char temp[100];
-			strcpy(temp, "./shared/");
-			strcat(temp, cFileUpload.fileName);
+			char fileName[100];
+			strcpy(fileName, "./shared/");
+			strcat(fileName, cFileUpload.fileName);
 
-			char *fname = temp;
-			FILE *fs = fopen(fname, "r");
-			if(fs == NULL)
+			char *fname = fileName;
+			FILE *f = fopen(fname, "r");
+			if(f == NULL)
 			{
 				printf("Unable to open file.\n");
 				return 0;
 			}
 
-			int block;
-			char *readbuf;
-
 		    // get size of file
-			if(stat(temp, &vstat) == -1)
+			if(stat(fileName, &vstat) == -1)
 			{
 				printf("vstat error\n");
 				return 0;
@@ -252,8 +243,6 @@ int client(int portnum, int fd1, char *IP, int type)
 
 			if(write(serverfd, &cFileUpload, sizeof(cFileUpload)) == -1)
 				printf("Failed to send  cFileUpload\n");
-			else
-				printf("Sent cFileUpload %s\n", cFileUpload.fileName);
 
 			size = vstat.st_size;
 
@@ -262,22 +251,21 @@ int client(int portnum, int fd1, char *IP, int type)
 				printf("send error\n");
 				return 0;
 			}
-			else
-				printf("sending file size %d\n", size);
 
 		    //waiting for accept or deny:
-			char result[100];
+			char result[100], *readbuf;
 			if((n = read(serverfd, &result, sizeof(result))) <= 0)
 				printf("Error reading result\n");
-			printf("%s", result);
+			
 			if(strcmp(result, "FileUploadDeny") == 0)
 			{
 				printf("Upload denied.\n");
-				fclose(fs);
+				fclose(f);
 				continue;
 			}
 			else
 				printf("Upload accepted\n");
+
 			readbuf =(char *) malloc(size * sizeof(char));
 			if(readbuf == NULL)
 			{
@@ -286,7 +274,8 @@ int client(int portnum, int fd1, char *IP, int type)
 			}
 
 		    //sending the file
-			while((block = fread(readbuf, sizeof(char), size, fs)) > 0)
+		    int block;
+			while((block = fread(readbuf, sizeof(char), size, f)) > 0)
 			{
 				if(send(serverfd, readbuf, block, 0) < 0)
 				{
@@ -302,7 +291,7 @@ int client(int portnum, int fd1, char *IP, int type)
 		{
 
 			struct FileHash_response cFileHash_response;
-			struct FileHash cFileHash;
+			struct hashFile cFileHash;
 			command = FileHash;
 
 		    // set the FileHash command
