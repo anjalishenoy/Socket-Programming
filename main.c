@@ -35,7 +35,7 @@ struct Operation
 	char fileName[1000];
 };
 
-struct hashFile
+struct HashFile
 {
 	CMD command;
 	char type[1000];
@@ -49,8 +49,8 @@ struct FileHash_response
 	char time_modified[128];
 };
 
-struct FileHash_response sFileHash_response;
-struct hashFile sFileHash;
+struct FileHash_response FileHash_response;
+struct HashFile sFileHash;
 
 int server(int portNo, int fdUpload); // Prototype
 
@@ -88,6 +88,8 @@ int client(int portnum, int fd1, char *IP, int type)
 	int n = 0, serverfd = 0, command, size, fr_block_sz, num_responses,i;
 	char *srecvBuff, *receiveBuffer;
 	char clientInput[1025];		//Buffer for server and client
+	char t1[200], t2[200];
+	time_t timt1, timt2;
 
 	struct sockaddr_in serverAddress;
 	char line[1000];
@@ -256,7 +258,7 @@ int client(int portnum, int fd1, char *IP, int type)
 			char result[100], *readbuf;
 			if((n = read(serverfd, &result, sizeof(result))) <= 0)
 				printf("Error reading result\n");
-			
+
 			if(strcmp(result, "FileUploadDeny") == 0)
 			{
 				printf("Upload denied.\n");
@@ -291,7 +293,7 @@ int client(int portnum, int fd1, char *IP, int type)
 		{
 
 			struct FileHash_response cFileHash_response;
-			struct hashFile cFileHash;
+			struct HashFile cFileHash;
 			command = FileHash;
 
 		    // set the FileHash command
@@ -383,15 +385,14 @@ int client(int portnum, int fd1, char *IP, int type)
 			struct sIndexGet fstat;
 			int lenfiles = 0;
 			char buff[1000];
-			char t1[200], t2[200];
-			time_t timt1, timt2;
+
 			char regex[100], fname[1000];
 			if((n = write(serverfd, &command, sizeof(int))) == -1)
 				printf("Failed to send command %s\n", clientInput);
 			else
 				printf("Command sent: %d %s\n", n, clientInput);
 			scanf("%s", option);
-			puts(option);
+
 			if(strcmp(option, "ShortList") == 0)
 			{
 				scanf("%s %s", t1, t2);
