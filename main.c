@@ -327,7 +327,7 @@ int client(int portnum, int fd1, char *IP)
 		return 1;
 	}
 	else
-		printf("Ceated socket\n");
+		printf("Created socket in CLIENT\n");
 	
 	int check=0;
 
@@ -360,19 +360,23 @@ int client(int portnum, int fd1, char *IP)
 		if(strcmp(clientInput, "FileDownload") == 0)
 		{
 			cFileDownload.command = FileDownload;
+			printf("Enter Filename for download:");
 			scanf("%s", cFileDownload.fileName);
-			printf("Dowloading file %s ...\n", cFileDownload.fileName);
 			command = FileDownload;
 
 			//Send command to server
 			n = write(serverfd, &command, sizeof(int));
 			if(n == -1)
 				printf("Failure in sending command %s. Retry!\n", clientInput);
+			else
+				printf("CLIENT: Command sent command %s\n", clientInput);
 
 			//Send cFileDownload
 			n=write(serverfd, &cFileDownload, sizeof(cFileDownload));
 			if(n == -1)
 				printf("Failed to send cFileDownload\n");
+			else
+				printf("CLIENT: Sent cFileDownload\n");
 
 			printf("....Receiving file from server.... \n");
 
@@ -696,18 +700,30 @@ int server ( int portNo, int fdUpload )
 	s_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 	s_addr.sin_port = htons(portNo);
 
-	int fdListen = 0;
+	int fdListen = 0, fdClient=0;
 	fdListen = socket(AF_INET, SOCK_STREAM, 0);
-	printf("Created Socket!\n");
+	printf("Created Socket for SERVER\n");
+
 	bind( fdListen ,(struct sockaddr *) &s_addr, sizeof(s_addr));
-	
+	printf("listening on port %d\n", portNo);
+
+	if(listen(fdListen, 10) == -1)
+	{
+		printf("Failed to listen\n");
+		return -1;
+	}
+
 	if(portNo == -1)
+	{
 		printf("Error listening to port!\n");
 		return -1;
+	}
 
-	int fdClient = 0;
-	if( fdClient = accept(fdListen,(struct sockaddr *) NULL, NULL) == -1)	// accept awaiting request
+	fdClient = accept(fdListen,(struct sockaddr *) NULL, NULL);
+	if( fdClient == -1)	// accept awaiting request
 		printf("Couldn't accept client request!\n");
+	else
+		printf("Accepted CLIENT request\n");
 	int c = 0, cmd, d; // file decriptors for command, download file
 
 	struct Operation downloadFile, uploadFile;
@@ -715,6 +731,7 @@ int server ( int portNo, int fdUpload )
 	while(1)
 	{
 		c = read(fdClient, &cmd, sizeof(int) ); // Take input for command to be performed
+		printf("SERVER: Received command %d\n", cmd);
 		if( c>0 )
 		{
 			printf("Received!\n");
@@ -733,7 +750,8 @@ int server ( int portNo, int fdUpload )
 				printf("Download File!\n");
 				if((d =read(fdClient,(void *) &downloadFile,sizeof(downloadFile))) != sizeof(downloadFile))
     				printf("Error reading filename\n");
-    			printf("Got FileDownload command\n");
+    			else
+    				printf("SERVER: Read file name for download as: %s\n", downloadFile.fileName);
     		
 	    		char dest[100];
 	    		strcpy(dest, "./shared/");
@@ -745,6 +763,8 @@ int server ( int portNo, int fdUpload )
 	    			printf("Unable to open file.\n");
 	    			return 0;
 	    		}
+	    		else
+	    			printf("SERVER: Opened file %s for download\n", downloadFile.fileName);
 
 	    		struct stat filestat;
 		    	// get size of file
