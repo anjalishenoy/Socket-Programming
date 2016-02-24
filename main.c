@@ -59,7 +59,7 @@ struct FileHash_response
 
 struct FileHash_response FileHash_response;
 struct HashFile sFileHash;
-int server(int portNo, int fdUpload); // Prototype
+int server(int portNo, int fdUpload, int type); // Prototype
 
 
 
@@ -1028,7 +1028,7 @@ int main(int argc, char *argv[])
 	if(id > 0)
 	{
 		close(fd[0]);
-		client(peer1, fd[1], argv[1], type);
+		client(peer1, fd[1], inputBuff[0], type);
 		kill(id, 9);
 	}
 	else if(id == 0)
