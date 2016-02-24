@@ -346,7 +346,7 @@ int client(int portnum, int fd1, char *IP)
 		scanf("%s", clientInput);	//scanning for inputs
 		//printf("Received command : %s\n", clientInput);
 
-		/*if(strcmp(clientInput, "FileUploadDeny") == 0)
+		if(strcmp(clientInput, "FileUploadDeny") == 0)
 		{
 			printf("REJECTING\n");
 			//Write to file descriptor
@@ -357,7 +357,7 @@ int client(int portnum, int fd1, char *IP)
 		{
 			printf("ALLOWING\n");
 			write(fd1, "FileUploadAllow",(strlen("FileUploadAllow") + 1));
-		}*/
+		}
 
 		if(strcmp(clientInput, "FileDownload") == 0)
 		{
@@ -371,7 +371,7 @@ int client(int portnum, int fd1, char *IP)
 			//Send command to server
 			n = write(serverfd, &command, sizeof(int));
 			if(n == -1)
-				printf("Failure in sending command %s. Retry!\n", clientInput);
+				printf("CLIENT: Failure in sending command %s. Retry!\n", clientInput);
 			else
 				printf("CLIENT: Command sent command %s\n", clientInput);
 
@@ -381,9 +381,9 @@ int client(int portnum, int fd1, char *IP)
 			//Send cFileDownload
 			n=write(serverfd, &cFileDownload, sizeof(cFileDownload));
 			if(n == -1)
-				printf("Failed to send cFileDownload\n");
+				printf("CLIENT: Failed to send cFileDownload Object\n");
 			else
-				printf("CLIENT: Sent cFileDownload\n");
+				printf("CLIENT: Sent cFileDownload Object\n");
 
 			printf("....Receiving file from server.... \n");
 
@@ -451,7 +451,7 @@ int client(int portnum, int fd1, char *IP)
 
 		    //sending command name
 			if((n = write(serverfd, &command, sizeof(int))) == -1)
-				printf("Failed to send command %s\n", clientInput);
+				printf("CLIENT: Failed to send command %s\n", clientInput);
 
 		    //opening the file
 			char fileName[100];
@@ -473,11 +473,15 @@ int client(int portnum, int fd1, char *IP)
 				return 0;
 			}
 
+			// send details of file to be uploaded to server
 			if(write(serverfd, &cFileUpload, sizeof(cFileUpload)) == -1)
-				printf("Failed to send  cFileUpload\n");
+				printf("Failed to send  cFileUpload Object\n");
+			else
+				printf("CLIENT: sent cFileUpload Object\n");
 
 			size = vstat.st_size;
 
+			//send size of file to be uploaded
 			if(send(serverfd, &size, sizeof(int), 0) < 0)
 			{
 				printf("send error\n");
@@ -498,6 +502,7 @@ int client(int portnum, int fd1, char *IP)
 			else
 				printf("Upload accepted\n");
 
+			// commence sending process
 			readbuf =(char *) malloc(size * sizeof(char));
 			if(readbuf == NULL)
 			{
@@ -703,16 +708,21 @@ int client(int portnum, int fd1, char *IP)
 
 int server ( int portNo, int fdUpload )
 {
+	//initialise a TCP socketstructure
 	struct sockaddr_in s_addr, c_addr;
 	s_addr.sin_family = AF_INET;
 	s_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 	s_addr.sin_port = htons(portNo);
 
+	// created socket
 	int fdListen = 0;
 	fdListen = socket(AF_INET, SOCK_STREAM, 0);
 	printf("Created Socket for SERVER\n");
+
+	//bind
 	bind( fdListen ,(struct sockaddr *) &s_addr, sizeof(s_addr));
 
+	//listen
 	if(listen(fdListen, 10) == -1)
 	{
 		printf("Failed to listen\n");
@@ -746,17 +756,19 @@ int server ( int portNo, int fdUpload )
 			printf("SERVER: Received command %d\n", cmd);
 			c = 0;
 		}
-		switch( (CMD) cmd)
-		{
-			case IndexGet:
+		
+		if( (CMD) cmd == IndexGet)
 			{
 				fileget(list, fdClient);
 				break;
 			}
 
-			case FileDownload:
+		else if( (CMD) cmd ==  FileDownload)
 			/*  begin */
-				printf("Download File!\n");
+			{
+				printf("SERVER: Download File!\n");
+
+				// read filename of command to be downloaded
 				if((d =read(fdClient,(void *) &downloadFile,sizeof(downloadFile))) != sizeof(downloadFile))
     				printf("Error reading filename\n");
     			else
@@ -766,6 +778,7 @@ int server ( int portNo, int fdUpload )
 	    		strcpy(dest, "./shared/");
 	    		strcat(dest, downloadFile.fileName);
 
+	    		//opening the file to copy the contents of file to be downloaded
 	    		FILE *fs;
 	    		if( (fs = fopen(dest, "r") ) == NULL )
 	    		{
@@ -776,20 +789,22 @@ int server ( int portNo, int fdUpload )
 	    			printf("SERVER: Opened file %s for download\n", downloadFile.fileName);
 
 	    		struct stat filestat;
+		    	
 		    	// get size of file
 	    		if(stat(dest, &filestat) == -1)
 	    		{
 	    			printf("vstat error\n");
 	    			return 0;
 	    		}
-		    // send file size 
+		    	
+		    	// send file size 
 	    		int block;
-	    		char *readBuffer;
 	    		int size;
+	    		char *readBuffer = (char *) malloc(size * sizeof(char) );
 	    		size = filestat.st_size;
-	    		if( (readBuffer = (char *) malloc(size * sizeof(char) ) ) == NULL)
+	    		if( readBuffer == NULL)
 	    		{
-	    			printf("error, No memory\n");
+	    			printf("No memory\n");
 	    			exit(0);
 	    		}
 
@@ -814,10 +829,10 @@ int server ( int portNo, int fdUpload )
 	    			printf("File Sent\n");
 	    		}
 	    		fclose(fs);
-			break;
+			}
 			/*end case */
 			
-			case FileUpload:
+			else if( (CMD) cmd == FileUpload)
 			/* begin */
 			{
 				printf("Upload a file!\n");
@@ -829,7 +844,7 @@ int server ( int portNo, int fdUpload )
 
     			//read filesize
     			int recSize = 0;
-    			size = 0;
+    			int size = 0;
     			if( (recSize = recv(fdClient, &size, sizeof(int), 0)) != sizeof(int)  )
     			{
     				printf("Couldnt read filesize!\n"); 
@@ -894,11 +909,11 @@ int server ( int portNo, int fdUpload )
 	    		}
 	    		printf("Done Upload!\n");
 	    		fclose(filePointer);
-	    		break;
+	    	
 	    	}
 	    		/* end case */
 
-	    	case FileHash:
+	    	else if( (CMD) cmd ==  FileHash)
 	    	/* begin */
 	    	{
 	    		MD5_CTX md5Context;
@@ -981,12 +996,10 @@ int server ( int portNo, int fdUpload )
 	    			//printf("Received invalid File Hash Command %s\n",FileHash.type);
 	    			return 0;
 	    		}
-	    		break;
 	    	}
+
 	    		/* end case */
-			
 		}
-	}
 }
 
 
