@@ -303,9 +303,9 @@ time_t gettime(char *T)
 }
 
 
-int client(int portnum, int fd1, char *IP, int type)
+int client(int portnum, int fd1, char *IP)
 {
-	int n = 0, serverfd = 0, command, size, fr_block_sz, num_responses,i;
+	int n = 0, serverfd = 0, command, size, fr_block_sz, num_responses,i, type;
 	char *srecvBuff, *receiveBuffer;
 	char clientInput[1025];		//Buffer for server and client
 	char t1[200], t2[200];
@@ -331,22 +331,8 @@ int client(int portnum, int fd1, char *IP, int type)
     clientAddress.sin_addr.s_addr = htonl(INADDR_ANY);
     clientAddress.sin_port = htons(LOCAL_PORT);
 
-	if(type==TCP)
-		serverfd = socket(AF_INET, SOCK_STREAM, 0);	
-	else
-		serverfd = socket(AF_INET, SOCK_DGRAM, 0);
-	//serverfd= socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);	for UDP
+	serverfd = socket(AF_INET, SOCK_STREAM, 0);	
 
-	if(type==UDP)
-	{
-		hp = gethostbyname(IP);
-    	if (hp == 0)//check assigment of UDP server host
-    	{
-    	    perror("Unknown Host ");
-    	    close(serverfd);
-    	    return 0;
-    	}
-	}
 	if(serverfd < 0)
 	{
 		printf("CLIENT: Error creating socket \n");
@@ -355,13 +341,24 @@ int client(int portnum, int fd1, char *IP, int type)
 	else
 		printf("CLIENT: Created socket in CLIENT\n");
 
+	/*if(type==UDP)
+	{
+		if (bind(sockfd, (struct sockaddr *) &clientAddress, sizeof(clientAddress)) < 0)//check UDP socket is bind correctly
+   		{
+        perror("Cannot bind ");
+        close(sockfd);
+        return 1;
+ 	   }
+
+	}*/
 	int check=0;
 
 	while((connect(serverfd,(struct sockaddr *) &serverAddress, sizeof(serverAddress)) < 0) && check < 50000)
 	{
-		check++;
-		sleep(1);
+			check++;
+			sleep(1);
 	}
+	
 
 	printf("CLIENT: Connection to server on port %d successful\n", portnum);
 
@@ -371,21 +368,43 @@ int client(int portnum, int fd1, char *IP, int type)
 		scanf("%s", clientInput);	//scanning for inputs
 		printf("CLIENT: Received command : %s\n", clientInput);
 
-		if(strcmp(clientInput, "FileUploadDeny") == 0)
+		if(strcmp(clientInput, "Deny") == 0)
 		{
 			printf("REJECTING\n");
 			//Write to file descriptor
-			write(fd1, "FileUploadDeny",(strlen("FileUploadDeny") + 1));
+			write(fd1, "Deny",(strlen("Deny") + 1));
 		}
 
 		if(strcmp(clientInput, "FileUploadAllow") == 0)
 		{
 			printf("ALLOWING\n");
-			write(fd1, "FileUploadAllow",(strlen("FileUploadAllow") + 1));
+			write(fd1, "Allow",(strlen("Allow") + 1));
 		}
 
 		if(strcmp(clientInput, "FileDownload") == 0)
 		{
+			printf("Input type of connection:\n");
+			scanf("%d", &type);
+			if(type==UDP)
+				serverfd = socket(AF_INET, SOCK_DGRAM, 0);
+			int sockfd=serverfd;		//socfd used if UDP
+			if(serverfd < 0)
+			{
+				printf("CLIENT(UDP): Error creating socket \n");
+				return 1;
+			}
+			else
+				printf("CLIENT(UDP): Created socket in CLIENT\n");
+			if(type==UDP)
+			{
+				if (bind(sockfd, (struct sockaddr *) &clientAddress, sizeof(clientAddress)) < 0)//check UDP socket is bind correctly
+   				{
+        			perror("Cannot bind ");
+        			close(sockfd);
+        			return 1;
+ 	   			}
+ 	   		}
+			//--------------------------------------------------------------------
 			cFileDownload.command = FileDownload;
 			//printf("CLIENT: Enter Filename for download:");
 			scanf("%s", cFileDownload.fileName);
@@ -394,14 +413,26 @@ int client(int portnum, int fd1, char *IP, int type)
 			command = FileDownload;
 
 			//Send command to server
-			n = write(serverfd, &command, sizeof(int));
+			if(type==TCP)
+				n = write(serverfd, &command, sizeof(int));
+			else
+			{
+				n=0;
+				sendto(sockfd, &command, sizeof(int), 0, (struct sockaddr *)&serverAddress, sizeof(serverAddress));
+			}
 			if(n == -1)
 				printf("CLIENT: Failure in sending command %s. Retry!\n", clientInput);
 			else
 				printf("CLIENT: Command %s sent to SERVER \n", clientInput);
 
 			//Send cFileDownload
-			n=write(serverfd, &cFileDownload, sizeof(cFileDownload));
+			if(type==TCP)
+				n=write(serverfd, &cFileDownload, sizeof(cFileDownload));
+			else
+			{
+				n=0;
+				sendto(sockfd, &cFileDownload, sizeof(cFileDownload), 0,(struct sockaddr *)&serverAddress, sizeof(serverAddress));
+			}
 			if(n == -1)
 				printf("CLIENT: Failed to send cFileDownload Object\n");
 			else
@@ -426,7 +457,11 @@ int client(int portnum, int fd1, char *IP, int type)
 			fr_block_sz = 0; size = 0;
 
 			// receive the file size
-			fr_block_sz =recv(serverfd, &size, sizeof(int), 0);
+			if(type==TCP)
+				fr_block_sz =recv(serverfd, &size, sizeof(int), 0);
+			else
+				fr_block_sz =recvfrom(serverfd, &size, sizeof(int), 0, (struct sockaddr *)&clientAddress, &len);
+
 			if(fr_block_sz!= sizeof(int))
 			{
 				printf("Error reading size of file %s\n", temp);
@@ -440,7 +475,12 @@ int client(int portnum, int fd1, char *IP, int type)
 			receiveBuffer =(char *) malloc(size * sizeof(char));
 
 		    // save original pointer to calculate MD5
-			while((fr_block_sz = recv(serverfd, receiveBuffer, LENGTH, 0)) > 0)
+		    if(type==TCP)
+				fr_block_sz = recv(serverfd, receiveBuffer, LENGTH, 0);
+			else
+				fr_block_sz =recvfrom(serverfd, receiveBuffer, LENGTH, 0, (struct sockaddr *)&clientAddress, &len);
+
+			while(fr_block_sz  > 0)
 			{
 				receiveBuffer[fr_block_sz] = 0;
 				int write_sz =fwrite(receiveBuffer, sizeof(char), fr_block_sz, f);	//Write to fileptr f
@@ -455,6 +495,10 @@ int client(int portnum, int fd1, char *IP, int type)
 				printf("Amount of size received: %d\n", receivedSize);
 				if(receivedSize >= size)
 					break;
+				if(type==TCP)
+					fr_block_sz = recv(serverfd, receiveBuffer, LENGTH, 0);
+				else
+					fr_block_sz =recvfrom(serverfd, receiveBuffer, LENGTH, 0, (struct sockaddr *)&clientAddress, &len);
 			}
 			printf("Done receiving file!\n");
 			//close the file
@@ -728,7 +772,7 @@ int client(int portnum, int fd1, char *IP, int type)
 
 }
 
-int server ( int portNo, int fdUpload, int type)
+int server ( int portNo, int fdUpload)
 {
 	//initialise a TCP socketstructure
 	struct sockaddr_in s_addr, c_addr;
@@ -1061,18 +1105,15 @@ int server ( int portNo, int fdUpload, int type)
 int main(int argc, char *argv[])
 {
 	int type;
-	if(argc < 5)
+	if(argc < 4)
 	{
-		printf("Usage ./peer <IP> <Port of Remote Machine> <Port of Your Machine> <TCP/UDP>\n");
+		printf("Usage ./peer <IP> <Port of Remote Machine> <Port of Your Machine>\n");
 		return -1;
 	}
 	struct stat st = {0};
 	if (stat("./shared", &st) == -1) 
 	    mkdir("./shared", 0700);
-	if(strcmp(argv[4], "TCP")==0)
-		type=TCP;
-	else
-		type=UDP;
+	
 	int peer1 = atoi(argv[2]);
 	int peer2 = atoi(argv[3]);
 	int fd[2];
@@ -1084,13 +1125,13 @@ int main(int argc, char *argv[])
 	if(id > 0)
 	{
 		close(fd[0]);
-		client(peer1, fd[1], argv[1], type);
+		client(peer1, fd[1], argv[1]);
 		kill(id, 9);
 	}
 	else if(id == 0)
 	{
 		close(fd[1]);
-		server(peer2, fd[0], type);
+		server(peer2, fd[0]);
 		exit(0);
 	}
 	return 0;
