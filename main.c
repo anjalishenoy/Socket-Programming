@@ -396,17 +396,17 @@ int client(int portnum, int fd1, char *IP)
 			else
 				type=TCP;
 			if(type==UDP)
+			{
 				serverfd = socket(AF_INET, SOCK_DGRAM, 0);
-			int sockfd=serverfd;		//socfd used if UDP
-			if(serverfd < 0)
-			{
-				printf("CLIENT(UDP): Error creating socket \n");
-				return 1;
-			}
-			else
-				printf("CLIENT(UDP): Created socket in CLIENT\n");
-			if(type==UDP)
-			{
+			
+				int sockfd=serverfd;		//socfd used if UDP
+				if(serverfd < 0)
+				{
+					printf("CLIENT(UDP): Error creating socket \n");
+					return 1;
+				}
+				else
+					printf("CLIENT(UDP): Created socket in CLIENT\n");
 				if (bind(sockfd, (struct sockaddr *) &clientAddress, sizeof(clientAddress)) < 0)//check UDP socket is bind correctly
    				{
         			perror("Cannot bind ");
