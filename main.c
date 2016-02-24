@@ -21,6 +21,8 @@
 #define LOCAL_PORT 0
 #define FALSE 0
 #define TRUE 1
+#define UDP 1
+#define TCP 0
 // FileDownload=0, FileUpload=1, FileHash=2, IndexGet=3
 typedef enum
 {	FileDownload, FileUpload, FileHash,	IndexGet } CMD;
@@ -388,6 +390,10 @@ int client(int portnum, int fd1, char *IP)
 		{
 			printf("Input type of connection:\n");
 			scanf("%d", &type);
+			if(type==1)
+				type=UDP;
+			else
+				type=TCP;
 			if(type==UDP)
 				serverfd = socket(AF_INET, SOCK_DGRAM, 0);
 			int sockfd=serverfd;		//socfd used if UDP
