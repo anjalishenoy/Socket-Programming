@@ -889,7 +889,7 @@ int server ( int portNo, int fdUpload )
 	    			recvBuffPtr += uploadBlock;
 	    			if(writeBlock != -1)
 	    			{
-	    				printf("File write : %s\n", temp);
+	    				printf("Amount Received ==> %d\n", sizeOfBlockRecvd);
 	    			}
 	    			else
 	    			{
@@ -930,7 +930,7 @@ int server ( int portNo, int fdUpload )
 
 	    			if(send(fdClient, &num_responses, sizeof(int), 0) < 0)
 	    			{
-	    				printf("Couldnt send number of responses!\n");
+	    				printf("Couldn't send number of responses!\n");
 	    				return 0;
 	    			}
 	    			else
@@ -940,7 +940,7 @@ int server ( int portNo, int fdUpload )
 
 	    			if(send(fdClient, &FileHash_response, sizeof(FileHash_response),0) < 0)
 	    			{
-	    				printf("Couldnt send number of responses!\n");
+	    				printf("Couldn't send number of responses!\n");
 	    				return 0;
 	    			}
 	    			else
