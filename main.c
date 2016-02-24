@@ -472,9 +472,9 @@ int client(int portnum, int fd1, char *IP)
 
 			// send details of file to be uploaded to server
 			if(write(serverfd, &cFileUpload, sizeof(cFileUpload)) == -1)
-				printf("Failed to send  cFileUpload Object\n");
+				printf("Failed to send FileUpload Object\n");
 			else
-				printf("CLIENT: sent cFileUpload Object\n");
+				printf("CLIENT: sent FileUpload Object\n");
 
 			size = vstat.st_size;
 
@@ -538,12 +538,12 @@ int client(int portnum, int fd1, char *IP)
 		    // get the fileName if Verify
 			if(strcmp(cFileHash.type, "Verify") == 0)
 			{
+				printf("Enter filename : \n");
 				scanf("%s", cFileHash.fileName);
 				printf("Hashing file %s ...\n", cFileHash.fileName);
 			}
-			char hashcommand[100];
 		    //sending command name
-		    n = write(serverfd, &hashcommand, sizeof(int));
+		    n = write(serverfd, &command, sizeof(int));
 			if(n == -1)
 				printf("Failed to send command %s\n", clientInput);
 			else
@@ -990,9 +990,15 @@ int server ( int portNo, int fdUpload )
 	    			//printf("Received invalid File Hash Command %s\n",FileHash.type);
 	    			return 0;
 	    		}
+	    		/* end case */
+	    	}
+	    	else
+	    	{
+	    		printf("Wrong Command Entered!\n");
+	    		continue;
 	    	}
 
-	    		/* end case */
+	    		
 		}
 }
 
