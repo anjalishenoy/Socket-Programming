@@ -345,7 +345,7 @@ int client(int portnum, int fd1, char *IP)
 		scanf("%s", clientInput);	//scanning for inputs
 		//printf("Received command : %s\n", clientInput);
 
-		/*if(strcmp(clientInput, "FileUploadDeny") == 0)
+		if(strcmp(clientInput, "FileUploadDeny") == 0)
 		{
 			printf("REJECTING\n");
 			//Write to file descriptor
@@ -356,7 +356,7 @@ int client(int portnum, int fd1, char *IP)
 		{
 			printf("ALLOWING\n");
 			write(fd1, "FileUploadAllow",(strlen("FileUploadAllow") + 1));
-		}*/
+		}
 
 		if(strcmp(clientInput, "FileDownload") == 0)
 		{
@@ -484,7 +484,7 @@ int client(int portnum, int fd1, char *IP)
 			if((n = read(serverfd, &result, sizeof(result))) <= 0)
 				printf("Error reading result\n");
 
-			if(strcmp(result, "FileUploadDeny") == 0)
+			if(strcmp(result, "Deny") == 0)
 			{
 				printf("Upload denied.\n");
 				fclose(f);
@@ -649,8 +649,8 @@ int client(int portnum, int fd1, char *IP)
 
 				if(strcmp(option, "LongList") == 0)
 				{
-					printf("Filename: ");
-					puts(fstat.fileName);
+					printf("Filename: %s\n", fstat.fileName);
+					//puts(fstat.fileName);
 					vstat = fstat.fileDetails;
 					printf("Size: %d\t",(int) vstat.st_size);
 					ctime_r(&vstat.st_mtime, buff);
