@@ -18,11 +18,8 @@
 #define LENGTH 1000
 #define BUF_SIZE 256
 #define MD5LENGTH 16
-#define LOCAL_PORT 0
 #define FALSE 0
 #define TRUE 1
-#define UDP 1
-#define TCP 0
 // FileDownload=0, FileUpload=1, FileHash=2, IndexGet=3
 typedef enum
 {	FileDownload, FileUpload, FileHash,	IndexGet } CMD;
@@ -42,6 +39,8 @@ struct Operation
 };
 
 
+
+
 struct HashFile
 {
 	CMD command;
@@ -58,7 +57,7 @@ struct FileHash_response
 
 struct FileHash_response FileHash_response;
 struct HashFile sFileHash;
-int server(int portNo, int fdUpload, int type); // Prototype
+int server(int portNo, int fdUpload); // Prototype
 
 
 
@@ -96,7 +95,7 @@ void Getmd5(char *readbuf, int size)
 }
 
 
-char *GetNextFile(DIR * fd)
+char * GetNextFile(DIR * fd)
 {
 
 	struct dirent *result;
@@ -160,13 +159,12 @@ int fileget(char *buf, int Fclientfd)
 			printf("Failed to send fileDetails\n");
 		else
 			printf("Sent fileDetails\n");
-			//sprintf(buf+strlen(buf),"%s",files[i-1]->d_name);
 	}
-	//strcat(buf,"\n"); 
+//            strcat(buf,"\n"); 
 	return 0;
 }
 
-// get file hash information for current FileHash
+// get file hash information for current sFileHash
 void getFileHash()
 {
 
@@ -275,44 +273,27 @@ time_t gettime(char *T)
 }
 
 
-int client(int portnum, int fd1, char *IP, int type)
+int client(int portnum, int fd1, char *IP)
 {
 	int n = 0, serverfd = 0, command, size, fr_block_sz, num_responses,i;
 	char *srecvBuff, *receiveBuffer;
 	char clientInput[1025];		//Buffer for server and client
 	char t1[200], t2[200];
 	time_t timt1, timt2;
-	struct hostent *hp;
-	socklen_t len;
 
-	struct sockaddr_in serverAddress, clientAddress;
+	struct sockaddr_in serverAddress;
 	char line[1000];
 	struct Operation cFileDownload;
 	struct Operation cFileUpload;
 	struct stat vstat;
 
 
-	//FOR TCP
-	bzero((char *) &serverAddress, sizeof(serverAddress));
-
-
 	serverAddress.sin_family = AF_INET;		//IPv4
 	serverAddress.sin_port = htons(portnum);		//Ntwork ordering
 	serverAddress.sin_addr.s_addr = inet_addr(IP);		//conversion to binary of an IP
 
-	//FOR UDP
-	bzero((char *) &clientAddress, sizeof(clientAddress));
-    clientAddress.sin_family = AF_INET;
-    clientAddress.sin_addr.s_addr = htonl(INADDR_ANY);
-    clientAddress.sin_port = htons(LOCAL_PORT);
-
-    if(type==TCP)
-		serverfd = socket(AF_INET, SOCK_STREAM, 0);	
-	else
-		serverfd = socket(AF_INET, SOCK_DGRAM, 0);
-
-	int sockfd=serverfd;		//socfd used if UDP
-
+	serverfd = socket(AF_INET, SOCK_STREAM, 0);			
+	//serverfd= socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);	for UDP
 	if(serverfd < 0)
 	{
 		printf("CLIENT: Error creating socket \n");
@@ -321,24 +302,14 @@ int client(int portnum, int fd1, char *IP, int type)
 	else
 		printf("CLIENT: Created socket in CLIENT\n");
 
-	if(type==UDP)
-	{
-		if (bind(sockfd, (struct sockaddr *) &clientAddress, sizeof(clientAddress)) < 0)//check UDP socket is bind correctly
-   		{
-        perror("Cannot bind ");
-        close(sockfd);
-        return 1;
- 	   }
-
-	}
+	
 	int check=0;
 
 	while((connect(serverfd,(struct sockaddr *) &serverAddress, sizeof(serverAddress)) < 0) && check < 50000)
 	{
-			check++;
-			sleep(1);
+		check++;
+		sleep(1);
 	}
-	
 
 	printf("CLIENT: Connection to server on port %d successful\n", portnum);
 
@@ -348,49 +319,37 @@ int client(int portnum, int fd1, char *IP, int type)
 		scanf("%s", clientInput);	//scanning for inputs
 		printf("CLIENT: Received command : %s\n", clientInput);
 
-		if(strcmp(clientInput, "Deny") == 0)
+		if(strcmp(clientInput, "FileUploadDeny") == 0)
 		{
 			printf("REJECTING\n");
 			//Write to file descriptor
-			write(fd1, "Deny",(strlen("Deny") + 1));
+			write(fd1, "FileUploadDeny",(strlen("FileUploadDeny") + 1));
 		}
 
 		if(strcmp(clientInput, "FileUploadAllow") == 0)
 		{
 			printf("ALLOWING\n");
-			write(fd1, "Allow",(strlen("Allow") + 1));
+			write(fd1, "FileUploadAllow",(strlen("FileUploadAllow") + 1));
 		}
 
 		if(strcmp(clientInput, "FileDownload") == 0)
 		{
 			cFileDownload.command = FileDownload;
-			printf("CLIENT: Enter Filename for download:");
+			//printf("CLIENT: Enter Filename for download:");
 			scanf("%s", cFileDownload.fileName);
 			printf("Downloading file %s ...\n", cFileDownload.fileName);
 
 			command = FileDownload;
 
 			//Send command to server
-			if(type==TCP)
-				n = write(serverfd, &command, sizeof(int));
-			else
-			{
-				n=0;
-				sendto(sockfd, &command, sizeof(int), 0, (struct sockaddr *)&serverAddress, sizeof(serverAddress));
-			}
+			n = write(serverfd, &command, sizeof(int));
 			if(n == -1)
 				printf("CLIENT: Failure in sending command %s. Retry!\n", clientInput);
 			else
 				printf("CLIENT: Command %s sent to SERVER \n", clientInput);
 
 			//Send cFileDownload
-			if(type==TCP)
-				n=write(serverfd, &cFileDownload, sizeof(cFileDownload));
-			else
-			{
-				n=0;
-				sendto(sockfd, &cFileDownload, sizeof(cFileDownload), 0,(struct sockaddr *)&serverAddress, sizeof(serverAddress));
-			}
+			n=write(serverfd, &cFileDownload, sizeof(cFileDownload));
 			if(n == -1)
 				printf("CLIENT: Failed to send cFileDownload Object\n");
 			else
@@ -415,11 +374,7 @@ int client(int portnum, int fd1, char *IP, int type)
 			fr_block_sz = 0; size = 0;
 
 			// receive the file size
-			if(type==TCP)
-				fr_block_sz =recv(serverfd, &size, sizeof(int), 0);
-			else
-				fr_block_sz =recvfrom(serverfd, &size, sizeof(int), 0, (struct sockaddr *)&clientAddress, &len);
-
+			fr_block_sz =recv(serverfd, &size, sizeof(int), 0);
 			if(fr_block_sz!= sizeof(int))
 			{
 				printf("CLIENT: Error reading size of file %s\n", temp);
@@ -433,12 +388,7 @@ int client(int portnum, int fd1, char *IP, int type)
 			receiveBuffer =(char *) malloc(size * sizeof(char));
 
 		    // save original pointer to calculate MD5
-		    if(type==TCP)
-				fr_block_sz = recv(serverfd, receiveBuffer, LENGTH, 0);
-			else
-				fr_block_sz =recvfrom(serverfd, receiveBuffer, LENGTH, 0, (struct sockaddr *)&clientAddress, &len);
-
-			while(fr_block_sz  > 0)
+			while((fr_block_sz = recv(serverfd, receiveBuffer, LENGTH, 0)) > 0)
 			{
 				receiveBuffer[fr_block_sz] = 0;
 				int write_sz =fwrite(receiveBuffer, sizeof(char), fr_block_sz, f);	//Write to fileptr f
@@ -453,10 +403,6 @@ int client(int portnum, int fd1, char *IP, int type)
 				printf("CLIENT: Size of file received ==> %d\n", receivedSize);
 				if(receivedSize >= size)
 					break;
-				if(type==TCP)
-					fr_block_sz = recv(serverfd, receiveBuffer, LENGTH, 0);
-				else
-					fr_block_sz =recvfrom(serverfd, receiveBuffer, LENGTH, 0, (struct sockaddr *)&clientAddress, &len);
 			}
 			printf("CLIENT: Done Receiving File!\n");
 			//close the file
@@ -474,15 +420,7 @@ int client(int portnum, int fd1, char *IP, int type)
 			command = FileUpload;
 
 		    //sending command name
-
-		    if(type==TCP)
-				n = write(serverfd, &command, sizeof(int));
-			else
-			{
-				n=0;
-				sendto(sockfd, &command, sizeof(int), 0, (struct sockaddr *)&serverAddress, sizeof(serverAddress));
-			}
-			if(n == -1)
+			if((n = write(serverfd, &command, sizeof(int))) == -1)
 				printf("CLIENT: Failed to send command %s\n", clientInput);
 
 		    //opening the file
@@ -506,14 +444,7 @@ int client(int portnum, int fd1, char *IP, int type)
 			}
 
 			// send details of file to be uploaded to server
-			if(type==TCP)
-				n=write(serverfd, &cFileUpload, sizeof(cFileUpload));
-			else
-			{
-				n=0;
-				sendto(sockfd, &cFileUpload, sizeof(cFileUpload), 0,(struct sockaddr *)&serverAddress, sizeof(serverAddress));
-			}
-			if(n == -1)
+			if(write(serverfd, &cFileUpload, sizeof(cFileUpload)) == -1)
 				printf("Failed to send FileUpload Object\n");
 			else
 				printf("CLIENT: sent FileUpload Object\n");
@@ -521,14 +452,7 @@ int client(int portnum, int fd1, char *IP, int type)
 			size = vstat.st_size;
 
 			//send size of file to be uploaded
-			if(type==TCP)
-				n=send(serverfd, &size, sizeof(int), 0);
-			else
-			{
-				n=0;
-				sendto(sockfd, &size, sizeof(int), 0,(struct sockaddr *)&serverAddress, sizeof(serverAddress));
-			}
-			if(n < 0)
+			if(send(serverfd, &size, sizeof(int), 0) < 0)
 			{
 				printf("send error\n");
 				return 0;
@@ -536,14 +460,7 @@ int client(int portnum, int fd1, char *IP, int type)
 
 		    //waiting for accept or deny:
 			char result[100], *readbuf;
-
-			if(type==TCP)
-				n = read(serverfd, &result, sizeof(result));
-			else
-				n =recvfrom(serverfd, &result, sizeof(result), 0, (struct sockaddr *)&clientAddress, &len);
-			
-
-			if(n <= 0)
+			if((n = read(serverfd, &result, sizeof(result))) <= 0)
 				printf("Error reading result\n");
 
 			if(strcmp(result, "Deny") == 0)
@@ -591,7 +508,7 @@ int client(int portnum, int fd1, char *IP, int type)
 			scanf("%s", cFileHash.type);
 			printf("FileHash Type: %s\n", cFileHash.type);
 
-		    // get the fileName only for Verify option
+		    // get the fileName if Verify
 			if(strcmp(cFileHash.type, "Verify") == 0)
 			{
 				printf("Enter filename : \n");
@@ -601,28 +518,28 @@ int client(int portnum, int fd1, char *IP, int type)
 		    //sending command name
 		    n = write(serverfd, &command, sizeof(int));
 			if(n == -1)
-				printf("CLIENT: Failed to send command %s\n", clientInput);
+				printf("Failed to send command %s\n", clientInput);
 			else
-				printf("CLIENT: Command sent: %s\n", clientInput);
+				printf("Command sent: %s\n", clientInput);
 
 		    // send cFileHash with the the information
 			if(write(serverfd, &cFileHash, sizeof(cFileHash)) == -1)
-				printf("CLIENT: Failed to send cFileHash\n");
+				printf("Failed to send cFileHash\n");
 			else
-				printf("CLIENT: Sent cFileHash %s %s \n", cFileHash.type,cFileHash.fileName);
-		    
+				printf("Sent cFileHash %s %s \n", cFileHash.type,cFileHash.fileName);
+
 		    // receive number of file hash resposes to expect
-			int num_responses = 0;
+		    n=recv(serverfd, &num_responses, sizeof(num_responses),0);
 
 		    //n==1 if VERIFY, and N if checkAll (N==number of files in directory)
-		    if((n = recv(serverfd, &num_responses, sizeof(num_responses),0) != sizeof(num_responses)))
+			if( n!= sizeof(num_responses))
 			{
-				printf("CLIENT: Error reading number of responses of file\n");
+				printf("Error reading number of responses of file\n");
 				return 0;
 			}
 			else
-				printf("CLIENT: Expecting %d responses\n", num_responses);
-		
+				printf("Expecting %d responses\n", num_responses);
+
 		    // print each file hash response
 		    MD5_CTX hash;
 			for(i = 0; i < num_responses; i++)
@@ -758,8 +675,7 @@ int client(int portnum, int fd1, char *IP, int type)
 
 }
 
-
-int server ( int portNo, int fdUpload, int type)
+int server ( int portNo, int fdUpload )
 {
 	//initialise a TCP socketstructure
 	struct sockaddr_in s_addr, c_addr;
@@ -930,7 +846,7 @@ int server ( int portNo, int fdUpload, int type)
 	    		char *recvBuffPtr =(char *) malloc(size * sizeof(char));
 	    		while(1)
 	    		{
-	    			if ((uploadBlock = recv(fdClient, recvBuffPtr, LENGTH, 0)) <= 0 )
+	    			if ( (uploadBlock = recv(fdClient, recvBuffPtr, LENGTH, 0)) <= 0 )
 	    				break;
 
 	    			recvBuffPtr[uploadBlock] = 0;
@@ -979,21 +895,22 @@ int server ( int portNo, int fdUpload, int type)
 
 	    			if(send(fdClient, &num_responses, sizeof(int), 0) < 0)
 	    			{
-	    				printf("SERVER: Couldn't send number of responses!\n");
+	    				printf("Couldn't send number of responses!\n");
 	    				return 0;
 	    			}
 	    			else
-	    				printf("SERVER: The number of responses: %d\n", num_responses);
+	    				printf("The number of responses: %d\n", num_responses);
 
 	    			getFileHash();
 
 	    			if(send(fdClient, &FileHash_response, sizeof(FileHash_response),0) < 0)
 	    			{
-	    				printf("SERVER: Couldn't send number of file hash responses!\n");
+	    				printf("Couldn't send number of responses!\n");
 	    				return 0;
 	    			}
 	    			else
-	    				printf("SERVER: Sent FileHash_response %s\n",FileHash_response.fileName);
+	    				printf("SERVER: Sent FileHash_response %s\n",
+	    					FileHash_response.fileName);
 	    		}
 	    		else if(strcmp(sFileHash.type, "CheckAll") == 0)
 	    		{
@@ -1051,22 +968,18 @@ int server ( int portNo, int fdUpload, int type)
 		}
 }
 
+
 int main(int argc, char *argv[])
 {
-	int type;
-	if(argc < 5)
+	if(argc < 4)
 	{
-		printf("Usage ./main [IP address] [Port of Remote Machine] [Port of Your Machine] [TCP/UDP]\n");
+		printf("Usage ./peer <IP> <Port of Remote Machine> <Port of Your Machine>\n");
 		return -1;
 	}
 	struct stat st = {0};
 	if (stat("./shared", &st) == -1) 
 	    mkdir("./shared", 0700);
-	if(strcmp(argv[4], "TCP")==0)
-		type=TCP;
-	else
-		type=UDP;
-
+	
 	int peer1 = atoi(argv[2]);
 	int peer2 = atoi(argv[3]);
 	int fd[2];
@@ -1078,13 +991,13 @@ int main(int argc, char *argv[])
 	if(id > 0)
 	{
 		close(fd[0]);
-		client(peer1, fd[1], argv[1], type);
+		client(peer1, fd[1], argv[1]);
 		kill(id, 9);
 	}
 	else if(id == 0)
 	{
 		close(fd[1]);
-		server(peer2, fd[0], type);
+		server(peer2, fd[0]);
 		exit(0);
 	}
 	return 0;
