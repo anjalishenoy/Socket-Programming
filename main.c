@@ -20,6 +20,8 @@
 #define MD5LENGTH 16
 #define FALSE 0
 #define TRUE 1
+#define TCP 0
+#define UDP 1
 // FileDownload=0, FileUpload=1, FileHash=2, IndexGet=3
 typedef enum
 {	FileDownload, FileUpload, FileHash,	IndexGet } CMD;
@@ -57,7 +59,7 @@ struct FileHash_response
 
 struct FileHash_response FileHash_response;
 struct HashFile sFileHash;
-int server(int portNo, int fdUpload); // Prototype
+int server(int portNo, int fdUpload, int type); // Prototype
 
 
 
@@ -300,7 +302,7 @@ time_t gettime(char *T)
 }
 
 
-int client(int portnum, int fd1, char *IP)
+int client(int portnum, int fd1, char *IP, int type)
 {
 	int n = 0, serverfd = 0, command, size, fr_block_sz, num_responses,i;
 	char *srecvBuff, *receiveBuffer;
@@ -314,12 +316,15 @@ int client(int portnum, int fd1, char *IP)
 	struct Operation cFileUpload;
 	struct stat vstat;
 
-
+	bzero((char *) &serverAddress, sizeof(serverAddress));
 	serverAddress.sin_family = AF_INET;		//IPv4
 	serverAddress.sin_port = htons(portnum);		//Ntwork ordering
 	serverAddress.sin_addr.s_addr = inet_addr(IP);		//conversion to binary of an IP
 
-	serverfd = socket(AF_INET, SOCK_STREAM, 0);			
+	if(type==TCP)
+		serverfd = socket(AF_INET, SOCK_STREAM, 0);	
+	else
+		serverfd = socket(AF_INET, SOCK_DGRAM, 0);
 	//serverfd= socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);	for UDP
 	if(serverfd < 0)
 	{
@@ -655,8 +660,8 @@ int client(int portnum, int fd1, char *IP)
 
 				if(strcmp(option, "LongList") == 0)
 				{
-					printf("Filename: ");
-					puts(fstat.fileName);
+					printf("Filename: %s\n", fstat.fileName);
+					//puts(fstat.fileName);
 					vstat = fstat.fileDetails;
 					printf("Size: %d\t",(int) vstat.st_size);
 					ctime_r(&vstat.st_mtime, buff);
@@ -702,7 +707,7 @@ int client(int portnum, int fd1, char *IP)
 
 }
 
-int server ( int portNo, int fdUpload )
+int server ( int portNo, int fdUpload, int type)
 {
 	//initialise a TCP socketstructure
 	struct sockaddr_in s_addr, c_addr;
@@ -727,18 +732,14 @@ int server ( int portNo, int fdUpload )
 	else
 		printf("SERVER: Listening on port %d\n", portNo);
 
-/*
-	if(portNo == -1)
-	{
-		printf("Error listening to port!\n");
-		return -1;
-	}
-*/
 	int fdClient=0;	
-	if( (fdClient = accept(fdListen,(struct sockaddr *) NULL, NULL) ) == -1)	// accept awaiting request
-		printf("Couldn't accept client request!\n");
-	else
-		printf("SERVER: Accepted CLIENT request\n");	//not happening
+	if(type==TCP)
+	{
+		if( (fdClient = accept(fdListen,(struct sockaddr *) NULL, NULL) ) == -1)	// accept awaiting request
+			printf("Couldn't accept client request!\n");
+		else
+			printf("SERVER: Accepted CLIENT request\n");	//not happening
+	}
 
 	int c = 0, cmd, d; // file decriptors for command, download file
 	struct Operation downloadFile, uploadFile;
@@ -1005,17 +1006,24 @@ int server ( int portNo, int fdUpload )
 
 int main(int argc, char *argv[])
 {
-	if(argc < 4)
+	int count=0, type;
+	char inputBuff[4][100];
+	printf("\nInput <IP> <Port of Remote Machine> <Port on your Machine> <TCP/UDP> \n");
+	while(count<4)
 	{
-		printf("Usage ./peer <IP> <Port of Remote Machine> <Port of Your Machine>\n");
-		return -1;
+		scanf("%s", inputBuff[count]);
 	}
+	if(strcmp(inputBuff[3], "TCP")==0)
+		type=TCP;
+	else if(strcmp(inputBuff[3], "UDP")==0)
+		type=UDP;
 	struct stat st = {0};
+	//Making shared directory
 	if (stat("./shared", &st) == -1) 
 	    mkdir("./shared", 0700);
 	
-	int peer1 = atoi(argv[2]);
-	int peer2 = atoi(argv[3]);
+	int peer1 = atoi(inputBuff[1]);
+	int peer2 = atoi(inputBuff[2]);
 	int fd[2];
 	int id = -1;
 
@@ -1025,13 +1033,13 @@ int main(int argc, char *argv[])
 	if(id > 0)
 	{
 		close(fd[0]);
-		client(peer1, fd[1], argv[1]);
+		client(peer1, fd[1], inputBuff[0], type);
 		kill(id, 9);
 	}
 	else if(id == 0)
 	{
 		close(fd[1]);
-		server(peer2, fd[0]);
+		server(peer2, fd[0], type);
 		exit(0);
 	}
 	return 0;
