@@ -332,7 +332,7 @@ int client(int portnum, int fd1, char *IP)
 	
 	int check=0;
 
-	while((connect(serverfd,(struct sockaddr *) &serverAddress, sizeof(serverAddress)) < 0) && check < 100)
+	while((connect(serverfd,(struct sockaddr *) &serverAddress, sizeof(serverAddress)) < 0) && check < 50000)
 	{
 		check++;
 		sleep(1);
@@ -342,6 +342,7 @@ int client(int portnum, int fd1, char *IP)
 
 	while(1)
 	{
+		printf("Enter command: ");
 		scanf("%s", clientInput);	//scanning for inputs
 		//printf("Received command : %s\n", clientInput);
 
@@ -364,6 +365,7 @@ int client(int portnum, int fd1, char *IP)
 			printf("Enter Filename for download:");
 			scanf("%s", cFileDownload.fileName);
 			printf("Downloading file %s ...\n", cFileDownload.fileName);
+
 			command = FileDownload;
 
 			//Send command to server
@@ -372,6 +374,9 @@ int client(int portnum, int fd1, char *IP)
 				printf("Failure in sending command %s. Retry!\n", clientInput);
 			else
 				printf("CLIENT: Command sent command %s\n", clientInput);
+
+			printf("Enter Filename for download:");
+			scanf("%s", cFileDownload.fileName);
 
 			//Send cFileDownload
 			n=write(serverfd, &cFileDownload, sizeof(cFileDownload));
@@ -393,8 +398,8 @@ int client(int portnum, int fd1, char *IP)
 				printf("Error creating file %s\n", temp);
 				return 1;
 			}
-			/*else
-				printf("created file %s\n", temp);*/
+			else
+				printf("created file %s\n", temp);
 			
 			fr_block_sz = 0; size = 0;
 
@@ -405,7 +410,8 @@ int client(int portnum, int fd1, char *IP)
 				printf("Error reading size of file %s\n", temp);
 				return 0;
 			}
-			printf("Size of file:%d\n",size);
+			else
+				printf("Size of file:%d\n",size);
 
 			int receivedSize = 0;
 			//Buffer to receive data from server
@@ -726,19 +732,18 @@ int server ( int portNo, int fdUpload )
 	if( fdClient = accept(fdListen,(struct sockaddr *) NULL, NULL) == -1)	// accept awaiting request
 		printf("Couldn't accept client request!\n");
 	else
-		printf("Accepted CLIENT request\n");
-	printf("fdClient value: %d\n", fdClient);
+		printf("Accepted CLIENT request\n");	//not happening
+
 	int c = 0, cmd, d; // file decriptors for command, download file
 
 	struct Operation downloadFile, uploadFile;
 	char list[1000];
 	while(1)
 	{
-		c = read(fdClient, &cmd, sizeof(int) ); // Take input for command to be performed
-		printf("SERVER: Received command %d\n", cmd);
-		if( c>0 )
+		 // Take input for command to be performed
+		if( c = read(fdClient, &cmd, sizeof(int) )>0 )
 		{
-			printf("Received!\n");
+			printf("SERVER: Received command %d\n", cmd);
 			c = 0;
 		}
 		switch( (CMD) cmd)
