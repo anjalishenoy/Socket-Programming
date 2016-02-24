@@ -700,30 +700,33 @@ int server ( int portNo, int fdUpload )
 	s_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 	s_addr.sin_port = htons(portNo);
 
-	int fdListen = 0, fdClient=0;
+	int fdListen = 0;
 	fdListen = socket(AF_INET, SOCK_STREAM, 0);
 	printf("Created Socket for SERVER\n");
 
 	bind( fdListen ,(struct sockaddr *) &s_addr, sizeof(s_addr));
-	printf("listening on port %d\n", portNo);
 
 	if(listen(fdListen, 10) == -1)
 	{
 		printf("Failed to listen\n");
 		return -1;
 	}
+	else
+		printf("Listening on port %d\n", portNo);
 
+/*
 	if(portNo == -1)
 	{
 		printf("Error listening to port!\n");
 		return -1;
 	}
-
-	fdClient = accept(fdListen,(struct sockaddr *) NULL, NULL);
-	if( fdClient == -1)	// accept awaiting request
+*/
+	int fdClient=0;	
+	if( fdClient = accept(fdListen,(struct sockaddr *) NULL, NULL) == -1)	// accept awaiting request
 		printf("Couldn't accept client request!\n");
 	else
 		printf("Accepted CLIENT request\n");
+	printf("fdClient value: %d\n", fdClient);
 	int c = 0, cmd, d; // file decriptors for command, download file
 
 	struct Operation downloadFile, uploadFile;
