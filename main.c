@@ -389,12 +389,14 @@ int client(int portnum, int fd1, char *IP)
 		if(strcmp(clientInput, "FileDownload") == 0)
 		{
 			char tjf[100];
-			printf("Input type of connection:\n");
-			scanf("%s", tjf);
-			if(strcmp(tjf, "UDP")==0)
-				type=UDP;
-			else
-				type=TCP;
+			//printf("Input type of connection:\n");
+			//scanf("%s", tjf);
+			
+			//if(strcmp(tjf, "UDP")==0)
+			//	type=UDP;
+			//else
+			//	type=TCP;
+			type=TCP;
 			if(type==UDP)
 			{
 				serverfd = socket(AF_INET, SOCK_DGRAM, 0);
