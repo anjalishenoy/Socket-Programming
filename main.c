@@ -40,8 +40,8 @@ struct Operation
 
 
 
-struct HashFile
 
+struct HashFile
 {
 	CMD command;
 	char type[1000];
@@ -54,7 +54,6 @@ struct FileHash_response
 	MD5_CTX md5Context;
 	char time_modified[128];
 };
-
 
 struct FileHash_response FileHash_response;
 struct HashFile sFileHash;
@@ -301,11 +300,13 @@ time_t gettime(char *T)
 }
 
 
-int client(int portnum, int fd1, char *IP, int type)
+int client(int portnum, int fd1, char *IP)
 {
 	int n = 0, serverfd = 0, command, size, fr_block_sz, num_responses,i;
 	char *srecvBuff, *receiveBuffer;
 	char clientInput[1025];		//Buffer for server and client
+	char t1[200], t2[200];
+	time_t timt1, timt2;
 
 	struct sockaddr_in serverAddress;
 	char line[1000];
@@ -398,6 +399,7 @@ int client(int portnum, int fd1, char *IP, int type)
 				printf("Error reading size of file %s\n", temp);
 				return 0;
 			}
+			printf("Size of file:%d\n",size);
 
 			int receivedSize = 0;
 			//Buffer to receive data from server
@@ -474,7 +476,7 @@ int client(int portnum, int fd1, char *IP, int type)
 			char result[100], *readbuf;
 			if((n = read(serverfd, &result, sizeof(result))) <= 0)
 				printf("Error reading result\n");
-			
+
 			if(strcmp(result, "FileUploadDeny") == 0)
 			{
 				printf("Upload denied.\n");
@@ -601,15 +603,14 @@ int client(int portnum, int fd1, char *IP, int type)
 			struct sIndexGet fstat;
 			int lenfiles = 0;
 			char buff[1000];
-			char t1[200], t2[200];
-			time_t timt1, timt2;
+
 			char regex[100], fname[1000];
 			if((n = write(serverfd, &command, sizeof(int))) == -1)
 				printf("Failed to send command %s\n", clientInput);
 			else
 				printf("Command sent: %d %s\n", n, clientInput);
 			scanf("%s", option);
-			puts(option);
+
 			if(strcmp(option, "ShortList") == 0)
 			{
 				scanf("%s %s", t1, t2);
@@ -960,10 +961,36 @@ int server ( int portNo, int fdUpload )
 }
 
 
-
-int main()
+int main(int argc, char *argv[])
 {
-	//CMD c;
+	if(argc < 4)
+	{
+		printf("Usage ./peer <IP> <Port of Remote Machine> <Port of Your Machine>\n");
+		return -1;
+	}
+	struct stat st = {0};
+	if (stat("./shared", &st) == -1) 
+	    mkdir("./shared", 0700);
+	
+	int peer1 = atoi(argv[2]);
+	int peer2 = atoi(argv[3]);
+	int fd[2];
+	int id = -1;
 
+	pipe(fd);
+	id = fork();
+
+	if(id > 0)
+	{
+		close(fd[0]);
+		client(peer1, fd[1], argv[1]);
+		kill(id, 9);
+	}
+	else if(id == 0)
+	{
+		close(fd[1]);
+		server(peer2, fd[0]);
+		exit(0);
+	}
 	return 0;
 }
