@@ -388,9 +388,10 @@ int client(int portnum, int fd1, char *IP)
 
 		if(strcmp(clientInput, "FileDownload") == 0)
 		{
+			char tjf[100];
 			printf("Input type of connection:\n");
-			scanf("%d", &type);
-			if(type==1)
+			scanf("%s", tjf);
+			if(strcmp(tjf, "UDP")==0)
 				type=UDP;
 			else
 				type=TCP;
