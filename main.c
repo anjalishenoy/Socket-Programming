@@ -16,7 +16,10 @@
 #include "md5.h"
 
 #define LENGTH 1000
-
+#define BUF_SIZE 256
+#define MD5LENGTH 16
+#define FALSE 0
+#define TRUE 1
 // FileDownload=0, FileUpload=1, FileHash=2, IndexGet=3
 typedef enum
 {	FileDownload, FileUpload, FileHash,	IndexGet } CMD;
@@ -35,6 +38,9 @@ struct Operation
 	char fileName[1000];
 };
 
+
+
+
 struct HashFile
 {
 	CMD command;
@@ -51,9 +57,220 @@ struct FileHash_response
 
 struct FileHash_response FileHash_response;
 struct HashFile sFileHash;
-
 int server(int portNo, int fdUpload); // Prototype
 
+
+
+int GetNoOfFiles()
+{
+
+
+		//int num_files = 0;
+
+	/*	struct dirent *result;
+		DIR *fd;
+		char temp[100];
+
+	    // open the directory
+		strcpy(temp, "./shared/");
+		fd = opendir(temp);
+		if(NULL == fd)
+		{
+			printf("Error opening directory %s\n", temp);
+			return 0;
+		}
+
+		while((result = readdir(fd)) != NULL)
+		{
+			if(!strcmp(result->d_name, ".") || !strcmp(result->d_name, ".."))
+				continue;
+			printf("%s\n", result->d_name);
+			num_files++;
+		}
+		closedir(fd);
+	*/
+	  int num_files = 0;
+	  FILE *fp;
+	  char path[1035];
+
+	  /* Open the command for reading. */
+	  fp = popen("ls -l ./shared/ | grep  ^- | wc -l", "r");
+	  if (fp == NULL) {
+	    printf("Failed to run command\n" );
+	    exit(1);
+	  }
+
+	  /* Read the output a line at a time - output it. */
+	  while (fgets(path, sizeof(path)-1, fp) != NULL) {
+	    num_files = atoi(path);
+	  }
+
+	  /* close */
+	  pclose(fp);
+
+		return num_files;
+}
+
+
+// get md5 of buffer
+void Getmd5(char *readbuf, int size)
+{
+	MD5Init(&FileHash_response.md5Context);
+	MD5Update(&FileHash_response.md5Context,(unsigned char *) readbuf, size);
+	MD5Final(&FileHash_response.md5Context);
+}
+
+
+char * GetNextFile(DIR * fd)
+{
+
+	struct dirent *result;
+
+	while((result = readdir(fd)) != NULL)
+	{
+		if(!strcmp(result->d_name, ".") || !strcmp(result->d_name, ".."))
+			continue;
+		printf("%s\n", result->d_name);
+		return result->d_name;
+	}
+	return NULL;
+}
+
+int file_select(const struct direct *entry)
+{
+	if((strcmp(entry->d_name, ".") == 0)||(strcmp(entry->d_name, "..") == 0))
+		return(FALSE);
+	else
+		return(TRUE);
+}
+
+int fileget(char *buf, int Fclientfd)
+{
+	int count, i;
+	struct direct **files;
+    //int file_select();
+	struct stat fileDetails;
+	struct sIndexGet fstat;
+	count = scandir("./shared", &files, file_select, alphasort); // scans the directory for matching entries
+
+	if(count <= 0)
+	{
+		strcat(buf, "No files in this directory\n");
+		return 0;
+	}
+	if(send(Fclientfd, &count, sizeof(int), 0) < 0)
+	{
+		printf("Couldn't send!\n");
+		return 0;
+	}
+
+	char dir[200];
+	strcpy(dir, "./shared/");
+	strcat(buf, "Number of files = ");
+	sprintf(buf + strlen(buf), "%d\n", count);
+	for(i = 0; i < count; ++i)
+	{
+		strcpy(dir, "./shared/");
+		strcat(dir, files[i]->d_name);
+		if(stat(dir, &(fileDetails)) == -1)
+		{
+			printf("fstat error\n");
+			return 0;
+		}
+		fstat.fileDetails = fileDetails;
+		strcpy(fstat.fileName, files[i]->d_name);
+
+
+		if(write(Fclientfd, &fstat, sizeof(fstat)) == -1)
+			printf("Failed to send fileDetails\n");
+		else
+			printf("Sent fileDetails\n");
+	//sprintf(buf+strlen(buf),"%s    ",files[i-1]->d_name);
+	}
+//            strcat(buf,"\n"); 
+	return 0;
+}
+
+// get file hash information for current sFileHash
+void getFileHash()
+{
+
+	char temp[100];
+	struct stat vstat;
+	char *fname = temp;
+	int block;
+	char *readbuf;
+
+    // copy filename into the response
+	strcpy(FileHash_response.fileName, sFileHash.fileName);
+
+	strcpy(temp, "./shared/");
+	strcat(temp, sFileHash.fileName);
+
+    // open file
+	FILE *fs = fopen(fname, "r");
+	if(fs == NULL)
+	{
+		printf("Unable to open file.\n");
+		return;
+	}
+
+    // get time modified of file
+	if(stat(temp, &vstat) == -1)
+	{
+		printf("fstat error\n");
+		return;
+	}
+
+    // copy the tiem modified into the response
+	ctime_r(&vstat.st_mtime, FileHash_response.time_modified);
+
+
+    // allocate space for readng the file
+	readbuf =(char *) malloc(vstat.st_size * sizeof(char));
+	if(readbuf == NULL)
+	{
+		printf("error, No memory\n");
+		exit(0);
+	}
+
+    // read the file
+	printf("Reading file...\n");
+	block = fread(readbuf, sizeof(char), vstat.st_size, fs);
+	if(block != vstat.st_size)
+	{
+		printf("Unable to read file.\n");
+		return;
+	}
+
+    // get the md5 of the file into the response
+	Getmd5(readbuf, vstat.st_size);
+
+    // print the final response
+	printf("FileHash_response of file %s \n", FileHash_response.fileName);
+	printf("    - Last Modified @ %s", FileHash_response.time_modified);
+	printf
+	("    - MD5 %01x%01x%01x%01x%01x%01x%01x%01x%01x%01x%01x%01x%01x%01x%01x%01x\n",
+		FileHash_response.md5Context.digest[0],
+		FileHash_response.md5Context.digest[1],
+		FileHash_response.md5Context.digest[2],
+		FileHash_response.md5Context.digest[3],
+		FileHash_response.md5Context.digest[4],
+		FileHash_response.md5Context.digest[5],
+		FileHash_response.md5Context.digest[6],
+		FileHash_response.md5Context.digest[7],
+		FileHash_response.md5Context.digest[8],
+		FileHash_response.md5Context.digest[9],
+		FileHash_response.md5Context.digest[10],
+		FileHash_response.md5Context.digest[11],
+		FileHash_response.md5Context.digest[12],
+		FileHash_response.md5Context.digest[13],
+		FileHash_response.md5Context.digest[14],
+		FileHash_response.md5Context.digest[16]);
+
+    // return
+	return;
+}
 //function to convert input time to normal time
 time_t gettime(char *T)
 {
@@ -83,7 +300,7 @@ time_t gettime(char *T)
 }
 
 
-int client(int portnum, int fd1, char *IP, int type)
+int client(int portnum, int fd1, char *IP)
 {
 	int n = 0, serverfd = 0, command, size, fr_block_sz, num_responses,i;
 	char *srecvBuff, *receiveBuffer;
@@ -182,6 +399,7 @@ int client(int portnum, int fd1, char *IP, int type)
 				printf("Error reading size of file %s\n", temp);
 				return 0;
 			}
+			printf("Size of file:%d\n",size);
 
 			int receivedSize = 0;
 			//Buffer to receive data from server
@@ -468,11 +686,311 @@ int client(int portnum, int fd1, char *IP, int type)
 		sleep(1);
 	}
 	return 0;
+
 }
 
-int main()
+int server ( int portNo, int fdUpload )
 {
-	//CMD c;
+	struct sockaddr_in s_addr, c_addr;
+	s_addr.sin_family = AF_INET;
+	s_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+	s_addr.sin_port = htons(portNo);
 
+	int fdListen = 0;
+	fdListen = socket(AF_INET, SOCK_STREAM, 0);
+	printf("Created Socket!\n");
+	bind( fdListen ,(struct sockaddr *) &s_addr, sizeof(s_addr));
+	
+	if(portNo == -1)
+		printf("Error listening to port!\n");
+		return -1;
+
+	int fdClient = 0;
+	if( fdClient = accept(fdListen,(struct sockaddr *) NULL, NULL) == -1)	// accept awaiting request
+		printf("Couldn't accept client request!\n");
+	int c = 0, cmd, d; // file decriptors for command, download file
+
+	struct Operation downloadFile, uploadFile;
+	char list[1000];
+	while(1)
+	{
+		c = read(fdClient, &cmd, sizeof(int) ); // Take input for command to be performed
+		if( c>0 )
+		{
+			printf("Received!\n");
+			c = 0;
+		}
+		switch( (CMD) cmd)
+		{
+			case IndexGet:
+			{
+				fileget(list, fdClient);
+				break;
+			}
+
+			case FileDownload:
+			/*  begin */
+				printf("Download File!\n");
+				if((d =read(fdClient,(void *) &downloadFile,sizeof(downloadFile))) != sizeof(downloadFile))
+    				printf("Error reading filename\n");
+    			printf("Got FileDownload command\n");
+    		
+	    		char dest[100];
+	    		strcpy(dest, "./shared/");
+	    		strcat(dest, downloadFile.fileName);
+
+	    		FILE *fs;
+	    		if( (fs = fopen(dest, "r") ) == NULL )
+	    		{
+	    			printf("Unable to open file.\n");
+	    			return 0;
+	    		}
+
+	    		struct stat filestat;
+		    	// get size of file
+	    		if(stat(dest, &filestat) == -1)
+	    		{
+	    			printf("vstat error\n");
+	    			return 0;
+	    		}
+		    // send file size 
+	    		int block;
+	    		char *readBuffer;
+	    		int size;
+	    		size = filestat.st_size;
+	    		if( (readBuffer = (char *) malloc(size * sizeof(char) ) ) == NULL)
+	    		{
+	    			printf("error, No memory\n");
+	    			exit(0);
+	    		}
+
+
+	    		if(send(fdClient, &size, sizeof(int), 0) < 0) // initiate transmission of a message from the specified socket to its peer
+	    		{
+	    			printf("send error\n");
+	    			return 0;
+	    		}
+
+	    		else
+	    			printf("sending file of size %d\n", size);
+
+	    	// send file block by block
+	    		while((block = fread(readBuffer, sizeof(char), size, fs)) > 0)
+	    		{
+	    			if(send(fdClient, readBuffer, block, 0) < 0)
+	    			{
+	    				printf("send error\n");
+	    				return 0;
+	    			}
+	    			printf("File Sent\n");
+	    		}
+	    		fclose(fs);
+			break;
+			/*end case */
+			
+			case FileUpload:
+			/* begin */
+			{
+				printf("Upload a file!\n");
+				
+				//read filename
+				int readName  = 0;
+				if( (readName = read(fdClient,(void *) &uploadFile,sizeof(uploadFile))) != sizeof(uploadFile))
+    				printf("Couldnt read filename!\n");
+
+    			//read filesize
+    			int recSize = 0;
+    			size = 0;
+    			if( (recSize = recv(fdClient, &size, sizeof(int), 0)) != sizeof(int)  )
+    			{
+    				printf("Couldnt read filesize!\n"); 
+    				return 0;
+    			}
+
+	    		char result[100];
+	    		int inputfd = 0,w = 0;
+	    		printf("File Upload requestedt, Allow or Deny? \n");
+	    		read(inputfd, result, sizeof("Allow"));
+
+	    		if(strcmp(result, "Deny") == 0)
+	    		{
+	    			if((w = write(fdClient, &result, sizeof(result))) == -1)
+	    				printf("Failed to send result %s\n", result);
+	    			else
+	    				printf("Rejection to upload sent: %d %s\n", w, result);
+	    			continue;
+	    		}
+	    		else
+	    		{
+	    			printf("Accepted file\n");
+	    			write(fdClient, &result, sizeof(result));
+	    		}
+
+	    		char temp[100];
+	    		strcpy(temp, "./shared/");
+	    		strcat(temp, uploadFile.fileName);
+	    		
+	    		// Open the file to be uploaded
+	    		FILE *filePointer;
+	    		if( ( filePointer = fopen(temp, "w+") ) == NULL)
+	    		{
+	    			printf("Error creating file %s\n", temp);
+	    			return 0;
+	    		}
+	 
+	    		int uploadBlock = 0, sizeOfBlockRecvd;
+	    		char *recvBuffPtr =(char *) malloc(size * sizeof(char));
+	    		while(1)
+	    		{
+	    			if ( (uploadBlock = recv(fdClient, recvBuffPtr, LENGTH, 0)) <= 0 )
+	    				break;
+
+	    			recvBuffPtr[uploadBlock] = 0;
+	    			int writeBlock = fwrite(recvBuffPtr, sizeof(char), uploadBlock, filePointer);
+	    			recvBuffPtr += uploadBlock;
+	    			if(writeBlock != -1)
+	    			{
+	    				printf("File write : %s\n", temp);
+	    			}
+	    			else
+	    			{
+	    				printf("File write error!\n");
+	    				return 0;
+	    			}
+
+	    			sizeOfBlockRecvd += uploadBlock;
+	    			if(sizeOfBlockRecvd >= size)		// size - total size of recieved file to be uploaded that was saved earlier
+	    				break;
+
+	    		}
+	    		printf("Done Upload!\n");
+	    		fclose(filePointer);
+	    		break;
+	    	}
+	    		/* end case */
+
+	    	case FileHash:
+	    	/* begin */
+	    	{
+	    		MD5_CTX md5Context;
+	    		int num_responses;
+	    		char temp[1000];
+	    		printf("File Hash!\n");
+	    		
+	    		int readFileHashPtr = 0;
+	    		readFileHashPtr = read(fdClient,(void *) &sFileHash,sizeof(sFileHash));
+	    		
+	    		if(readFileHashPtr != sizeof(sFileHash))
+	    			printf("Error reading file hash!\n");
+	    		else
+	    			printf("Commencing File Hash %s, sFileHash.type\n");
+
+	    		if(strcmp( sFileHash.type, "Verify" ) == 0)
+	    		{
+	    			num_responses = 1;
+
+	    			if(send(fdClient, &num_responses, sizeof(int), 0) < 0)
+	    			{
+	    				printf("Couldnt send number of responses!\n");
+	    				return 0;
+	    			}
+	    			else
+	    				printf("The number of responses: %d\n", num_responses);
+
+	    			getFileHash();
+
+	    			if(send(fdClient, &FileHash_response, sizeof(FileHash_response),0) < 0)
+	    			{
+	    				printf("Couldnt send number of responses!\n");
+	    				return 0;
+	    			}
+	    			else
+	    				printf("Sent FileHash_response %s\n",
+	    					FileHash_response.fileName);
+	    		}
+	    		else if(strcmp(sFileHash.type, "CheckAll") == 0)
+	    		{
+	    			DIR *fd;
+	    			int i;
+	    			printf("Check all \n");
+	    			strcpy(temp, "./shared/");
+	    			fd = opendir(temp);
+	    			if(NULL == fd)
+	    			{
+	    				printf("Error opening directory %s\n", temp);
+	    				return 0;
+	    			}
+
+	    			num_responses = GetNoOfFiles();
+	    			printf("Found %d files in shared folder\n", num_responses);
+	    			if(send(fdClient, &num_responses, sizeof(num_responses), 0) <  0)
+	    			{
+	    				printf("Couldn't send! \n");
+	    				return 0;
+	    			}
+	    			else
+	    				printf("sent number of responses %d\n", num_responses);
+
+	    			fd = opendir(temp);
+	    			for(i = 0; i < num_responses; i++)
+	    			{
+	    				strcpy(sFileHash.fileName, GetNextFile(fd));
+	    				getFileHash();
+
+	    				if(send(fdClient, &FileHash_response,sizeof(FileHash_response), 0) < 0)
+	    				{
+	    					printf("Couldn't send!\n");
+	    					return 0;
+	    				}
+	    				else
+	    					printf("sent FileHash_response %s\n",FileHash_response.fileName);
+	    			}
+	    			closedir(fd);
+	    		}
+	    		else
+	    		{
+	    			//printf("Received invalid File Hash Command %s\n",FileHash.type);
+	    			return 0;
+	    		}
+	    		break;
+	    	}
+	    		/* end case */
+			
+		}
+	}
+}
+
+
+int main(int argc, char *argv[])
+{
+	if(argc < 4)
+	{
+		printf("Usage ./peer <IP> <Port of Remote Machine> <Port of Your Machine>\n");
+		return -1;
+	}
+	struct stat st = {0};
+	if (stat("./shared", &st) == -1) 
+	    mkdir("./shared", 0700);
+	
+	int peer1 = atoi(argv[2]);
+	int peer2 = atoi(argv[3]);
+	int fd[2];
+	int id = -1;
+
+	pipe(fd);
+	id = fork();
+
+	if(id > 0)
+	{
+		close(fd[0]);
+		client(peer1, fd[1], argv[1]);
+		kill(id, 9);
+	}
+	else if(id == 0)
+	{
+		close(fd[1]);
+		server(peer2, fd[0]);
+		exit(0);
+	}
 	return 0;
 }
