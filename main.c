@@ -1036,7 +1036,7 @@ int server ( int portNo, int fdUpload, int type)
 	    		}
 	    		else
 	    		{
-	    			printf("Received invalid File Hash Command %s\n",FileHash.type);
+	    			//printf("Received invalid File Hash Command %s\n",FileHash.type);
 	    			return 0;
 	    		}
 	    		/* end case */
