@@ -327,7 +327,7 @@ int client(int portnum, int fd1, char *IP)
 		return 1;
 	}
 	else
-		printf("Ceated socket\n");
+		printf("Created socket in client\n");
 	
 	int check=0;
 
@@ -361,7 +361,7 @@ int client(int portnum, int fd1, char *IP)
 		{
 			cFileDownload.command = FileDownload;
 			scanf("%s", cFileDownload.fileName);
-			printf("Dowloading file %s ...\n", cFileDownload.fileName);
+			printf("Downloading file %s ...\n", cFileDownload.fileName);
 			command = FileDownload;
 
 			//Send command to server
@@ -698,7 +698,7 @@ int server ( int portNo, int fdUpload )
 
 	int fdListen = 0;
 	fdListen = socket(AF_INET, SOCK_STREAM, 0);
-	printf("Created Socket!\n");
+	printf("Created Socket in Server!\n");
 	bind( fdListen ,(struct sockaddr *) &s_addr, sizeof(s_addr));
 	
 	if(portNo == -1)
