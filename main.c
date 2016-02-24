@@ -392,11 +392,11 @@ int client(int portnum, int fd1, char *IP)
 			//Creating file to copy downloaded contents
 			if(f == NULL)
 			{
-				printf("Error creating file %s\n", temp);
+				printf("CLIENT: Error Creating File %s\n", temp);
 				return 1;
 			}
 			else
-				printf("created file %s\n", temp);
+				printf("CLIENT: Created file %s\n", temp);
 			
 			fr_block_sz = 0; size = 0;
 
@@ -404,11 +404,11 @@ int client(int portnum, int fd1, char *IP)
 			fr_block_sz =recv(serverfd, &size, sizeof(int), 0);
 			if(fr_block_sz!= sizeof(int))
 			{
-				printf("Error reading size of file %s\n", temp);
+				printf("CLIENT: Error reading size of file %s\n", temp);
 				return 0;
 			}
 			else
-				printf("Size of file:%d\n",size);
+				printf("CLIENT: Size of file:%d\n",size);
 
 			int receivedSize = 0;
 			//Buffer to receive data from server
@@ -422,16 +422,16 @@ int client(int portnum, int fd1, char *IP)
 				receiveBuffer += fr_block_sz;
 				if(write_sz == -1)
 				{
-					printf("Error writing to file %s\n", temp);
+					printf("CLIENT: Error writing to file %s\n", temp);
 					return 0;
 				}
 
 				receivedSize += fr_block_sz;
-				printf("Amount of size received: %d\n", receivedSize);
+				printf("CLIENT: Size of file received ==> %d\n", receivedSize);
 				if(receivedSize >= size)
 					break;
 			}
-			printf("Done receiving file!\n");
+			printf("CLIENT: Done Receiving File!\n");
 			//close the file
 			fclose(f);
 			n = 0;
@@ -490,7 +490,7 @@ int client(int portnum, int fd1, char *IP)
 			if((n = read(serverfd, &result, sizeof(result))) <= 0)
 				printf("Error reading result\n");
 
-			if(strcmp(result, "FileUploadDeny") == 0)
+			if(strcmp(result, "Deny") == 0)
 			{
 				printf("Upload denied.\n");
 				fclose(f);
@@ -533,28 +533,27 @@ int client(int portnum, int fd1, char *IP)
 
 		    // get the type
 			scanf("%s", cFileHash.type);
-			printf("FileHash type %s ...\n", cFileHash.type);
+			printf("FileHash Type: %s\n", cFileHash.type);
 
 		    // get the fileName if Verify
 			if(strcmp(cFileHash.type, "Verify") == 0)
 			{
 				scanf("%s", cFileHash.fileName);
-				printf("FileHash file %s ...\n", cFileHash.fileName);
+				printf("Hashing file %s ...\n", cFileHash.fileName);
 			}
-
+			char hashcommand[100];
 		    //sending command name
-		    n = write(serverfd, &command, sizeof(int));
+		    n = write(serverfd, &hashcommand, sizeof(int));
 			if(n == -1)
 				printf("Failed to send command %s\n", clientInput);
 			else
-				printf("Command sent: %d %s\n", n, clientInput);
+				printf("Command sent: %s\n", clientInput);
 
 		    // send cFileHash with the the information
 			if(write(serverfd, &cFileHash, sizeof(cFileHash)) == -1)
 				printf("Failed to send cFileHash\n");
 			else
-				printf("Sent cFileHash %s %s \n", cFileHash.type,
-					cFileHash.fileName);
+				printf("Sent cFileHash %s %s \n", cFileHash.type,cFileHash.fileName);
 
 		    // receive number of file hash resposes to expect
 		    n =recv(serverfd, &num_responses, sizeof(num_responses),0);
@@ -582,7 +581,7 @@ int client(int portnum, int fd1, char *IP)
 				n =recv(serverfd, &cFileHash_response, sizeof(cFileHash_response),0);
 				if(n!= sizeof(cFileHash_response))
 				{
-					printf("Error reading cFileHash_response of file %s\n", cFileHash.fileName);
+					printf("Error reading File Hash Response of file %s\n", cFileHash.fileName);
 					return 0;
 				}
 				else
@@ -749,7 +748,7 @@ int server ( int portNo, int fdUpload )
 		 // Take input for command to be performed
 		if((c = read(fdClient, &cmd, sizeof(int))) > 0)
 		{
-			printf("SERVER: Received command %d\n", cmd);
+			printf("SERVER: Received command %s\n", cmd);
 			c = 0;
 		}
 		
@@ -811,7 +810,7 @@ int server ( int portNo, int fdUpload )
 	    		}
 
 	    		else
-	    			printf("sending file of size %d\n", size);
+	    			printf("SERVER: Sending file of size %d\n", size);
 
 	    	// send file block by block
 	    		while((block = fread(readBuffer, sizeof(char), size, fs)) > 0)
@@ -821,7 +820,7 @@ int server ( int portNo, int fdUpload )
 	    				printf("send error\n");
 	    				return 0;
 	    			}
-	    			printf("File Sent\n");
+	    			printf("SERVER: File Sent\n");
 	    		}
 	    		fclose(fs);
 			}
@@ -902,7 +901,7 @@ int server ( int portNo, int fdUpload )
 	    				break;
 
 	    		}
-	    		printf("Done Upload!\n");
+	    		printf("SERVER: Done Upload!\n");
 	    		fclose(filePointer);
 	    	
 	    	}
@@ -914,15 +913,15 @@ int server ( int portNo, int fdUpload )
 	    		MD5_CTX md5Context;
 	    		int num_responses;
 	    		char temp[1000];
-	    		printf("File Hash!\n");
+	    		printf("SERVER: File Hash!\n");
 	    		
 	    		int readFileHashPtr = 0;
 	    		readFileHashPtr = read(fdClient,(void *) &sFileHash,sizeof(sFileHash));
 	    		
 	    		if(readFileHashPtr != sizeof(sFileHash))
-	    			printf("Error reading file hash!\n");
+	    			printf("SERVER: Error reading file hash!\n");
 	    		else
-	    			printf("Commencing File Hash %s, sFileHash.type\n");
+	    			printf("SERVER: Commencing File Hash %s, sFileHash.type\n");
 
 	    		if(strcmp( sFileHash.type, "Verify" ) == 0)
 	    		{
@@ -944,7 +943,7 @@ int server ( int portNo, int fdUpload )
 	    				return 0;
 	    			}
 	    			else
-	    				printf("Sent FileHash_response %s\n",
+	    				printf("SERVER: Sent FileHash_response %s\n",
 	    					FileHash_response.fileName);
 	    		}
 	    		else if(strcmp(sFileHash.type, "CheckAll") == 0)
