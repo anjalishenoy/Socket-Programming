@@ -196,7 +196,7 @@ int fileget(char *buf, int Fclientfd)
 }
 
 // get file hash information for current FileHash
-void getFileHash()
+void getFileHash(char fileName[100])
 {
 
 	char temp[100];
@@ -206,10 +206,10 @@ void getFileHash()
 	char *readbuf;
 
     // copy filename into the response
-	strcpy(FileHash_response.fileName, sFileHash.fileName);
+	strcpy(FileHash_response.fileName, fileName);
 
 	strcpy(temp, "./shared/");
-	strcat(temp, sFileHash.fileName);
+	strcat(temp, fileName);
 
     // open file
 	FILE *fs = fopen(fname, "r");
@@ -517,8 +517,7 @@ int client(int portnum, int fd1, char *IP)
 			printf(" File download details: \n");
 			printf("Name: %s\n",cFileDownload.fileName);
 			printf("Size: %d\n",size );
-			printf("Time Modified: \n");
-			printf("FileHash: \n");
+			getFileHash(cFileDownload.fileName);
 			//close the file
 			fclose(f);
 			n = 0;
@@ -1033,7 +1032,7 @@ int server ( int portNo, int fdUpload)
 	    			else
 	    				printf("SERVER: The number of responses: %d\n", num_responses);
 
-	    			getFileHash();
+	    			getFileHash(sFileHash.fileName);
 
 	    			if(send(fdClient, &FileHash_response, sizeof(FileHash_response),0) < 0)
 	    			{
@@ -1070,7 +1069,7 @@ int server ( int portNo, int fdUpload)
 	    			for(i = 0; i < num_responses; i++)
 	    			{
 	    				strcpy(sFileHash.fileName, GetNextFile(fd));
-	    				getFileHash();
+	    				getFileHash(sFileHash.fileName);
 
 	    				if(send(fdClient, &FileHash_response,sizeof(FileHash_response), 0) < 0)
 	    				{
