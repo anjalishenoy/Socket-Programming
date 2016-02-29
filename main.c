@@ -945,7 +945,7 @@ int server ( int portNo, int fdUpload)
 
 	    		char result[100];
 	    		int inputfd = 0,w = 0;
-	    		printf("File Upload requested, Allow or Deny? \n");
+	    		printf("SERVER: File Upload requested, Allow or Deny? \n");
 	    		read(inputfd, result, sizeof("Allow"));
 
 	    		if(strcmp(result, "Deny") == 0)
@@ -1009,7 +1009,7 @@ int server ( int portNo, int fdUpload)
     		char sign[16];
     		int num_responses;
     		char temp[100];
-    		printf("Got FileHash command\n");
+    		printf("SERVER: Got FileHash command\n");
 
     		if((read(fdClient,(void *) &sFileHash,sizeof(sFileHash))) != sizeof(sFileHash))
     			printf("Error reading cFileHash\n");
@@ -1029,7 +1029,7 @@ int server ( int portNo, int fdUpload)
     				return 0;
     			}
     			else
-    				printf("sent number of responses %d\n", num_responses);
+    				printf("SERVER: sent number of responses %d\n", num_responses);
     			printf("ALL DONE\n");
     			getFileHash(sFileHash.fileName);
     			if(send(fdClient, &FileHash_response, sizeof(FileHash_response),0) < 0)
@@ -1038,8 +1038,7 @@ int server ( int portNo, int fdUpload)
     				return 0;
     			}
     			else
-    				printf("sent FileHash_response %s\n",
-    					FileHash_response.fileName);
+    				printf("SERVER: FileHash_response %s\n",FileHash_response.fileName);
     		}
     		else if(strcmp(sFileHash.type, "CheckAll") == 0)
     		{
@@ -1062,7 +1061,7 @@ int server ( int portNo, int fdUpload)
     				return 0;
     			}
     			else
-    				printf("sent number of responses %d\n", num_responses);
+    				printf("SERVER: sent number of responses %d\n", num_responses);
 
     			fd = opendir(temp);
     			for(i = 0; i < num_responses; i++)
@@ -1082,13 +1081,11 @@ int server ( int portNo, int fdUpload)
     		}
     		else
     		{
-    			printf("RReceived invalid FileHash Command %s\n",sFileHash.type);
+    			printf("Received invalid FileHash Command %s\n",sFileHash.type);
     			return 0;
     		}
 
     	}
-    	else
-    		printf("Wrong command entered!\n");
     		
 		}
 }
@@ -1100,7 +1097,7 @@ int main(int argc, char *argv[])
 	int type;
 	if(argc < 4)
 	{
-		printf("Usage ./peer <IP> <Port of Remote Machine> <Port of Your Machine>\n");
+		printf("Usage ./main <IP> <Port of Remote Machine> <Port of Your Machine>\n");
 		return -1;
 	}
 	struct stat st = {0};
