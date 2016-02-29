@@ -716,7 +716,7 @@ int client(int portnum, int fd1, char *IP)
 
 			if(strcmp(option, "RegEx") == 0)
 			{
-				system("touch res");
+				system("touch res"); //creates res file
 				scanf("%s", regex);		//inputting the regex
 
 			}
@@ -728,7 +728,7 @@ int client(int portnum, int fd1, char *IP)
 				return 0;
 			}
 			else
-				printf("Recieved number of files %d\n", lenfiles);
+				printf("Recieved total number of files %d. This list will now be processed for desired output.\n", lenfiles);
 
 			for(i = 0; i < lenfiles; i++)
 			{
@@ -773,6 +773,7 @@ int client(int portnum, int fd1, char *IP)
 				strcpy(call, "cat res | grep -E ");
 				strcat(call, regex);
 				strcat(call, " ; rm -rf res");
+//				printf("%s\n",call);
 				system(call);
 			}
 
