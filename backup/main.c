@@ -207,6 +207,7 @@ void getFileHash(char fileName[100])
 
     // copy filename into the response
 	strcpy(FileHash_response.fileName, fileName);
+
 	strcpy(temp, "./shared/");
 	strcat(temp, fileName);
 
@@ -369,7 +370,7 @@ int client(int portnum, int fd1, char *IP)
 
 	while(1)
 	{
-		//printf("CLIENT: Enter command: ");
+		printf("CLIENT: Enter command: ");
 		scanf("%s", clientInput);	//scanning for inputs
 		printf("CLIENT: Received command : %s\n", clientInput);
 
@@ -418,7 +419,7 @@ int client(int portnum, int fd1, char *IP)
  	   		}
 			//--------------------------------------------------------------------
 			cFileDownload.command = FileDownload;
-			//printf("CLIENT: Enter Filename for download:");
+			printf("CLIENT: Enter Filename for download:");
 			scanf("%s", cFileDownload.fileName);
 			printf("Downloading file %s ...\n", cFileDownload.fileName);
 
@@ -611,63 +612,78 @@ int client(int portnum, int fd1, char *IP)
 
 			struct FileHash_response cFileHash_response;
 			struct HashFile cFileHash;
-			struct stat vstat;
-			int num_responses;
-			int command = FileHash;
-			int i;
-			int n = 0;
+			command = FileHash;
 
 		    // set the FileHash command
 			cFileHash.command = FileHash;
 
 		    // get the type
 			scanf("%s", cFileHash.type);
-			printf("FileHash type %s ...\n", cFileHash.type);
+			printf("FileHash Type: %s\n", cFileHash.type);
 
-		    // get the filename if Verify
+		    // get the fileName only for Verify option
 			if(strcmp(cFileHash.type, "Verify") == 0)
 			{
+				printf("Enter filename : \n");
 				scanf("%s", cFileHash.fileName);
-				printf("FileHash file %s ...\n", cFileHash.fileName);
+				printf("Hashing file %s ...\n", cFileHash.fileName);
 			}
-
 		    //sending command name
-			if(( n = write(serverfd, &command, sizeof(int))) == -1)
-				printf("Failed to send command %s\n", clientInput);
+		    n = write(serverfd, &command, sizeof(int));
+			if(n == -1)
+				printf("CLIENT: Failed to send command %s\n", clientInput);
 			else
-				printf("Command sent: %d %s\n", n, clientInput);
+				printf("CLIENT: Command sent: %s\n", clientInput);
 
 		    // send cFileHash with the the information
-			if( n = write(serverfd, &cFileHash, sizeof(cFileHash)) == -1)
-				printf("Failed to send    cFileHash\n");
+			if(write(serverfd, &cFileHash, sizeof(cFileHash)) == -1)
+				printf("CLIENT: Failed to send cFileHash\n");
 			else
-				printf("Sent cFileHash %s %s \n", cFileHash.type,cFileHash.fileName);
-
+				printf("CLIENT: Sent cFileHash %s %s \n", cFileHash.type,cFileHash.fileName);
+		    
 		    // receive number of file hash resposes to expect
-			if(( n = recv(serverfd, &num_responses, sizeof(num_responses),0) != sizeof(num_responses)))
+			int num_responses = 0;
+		    //n=recv(serverfd, &num_responses, sizeof(num_responses),0);
+
+		    //n==1 if VERIFY, and N if checkAll (N==number of files in directory)
+		    if((n = recv(serverfd, &num_responses, sizeof(num_responses),0) != sizeof(num_responses)))
+			{
+				printf("CLIENT: Error reading number of responses of file\n");
+				return 0;
+			}
+			else
+				printf("CLIENT: Expecting %d responses\n", num_responses);
+			/*
+			if( n!= sizeof(num_responses))
 			{
 				printf("Error reading number of responses of file\n");
 				return 0;
 			}
 			else
 				printf("Expecting %d responses\n", num_responses);
+			*/
 
 		    // print each file hash response
+		    MD5_CTX hash;
 			for(i = 0; i < num_responses; i++)
 			{
-
-				if( n = recv(serverfd, &cFileHash_response, sizeof(cFileHash_response),0) != sizeof(cFileHash_response) )
+				n=recv(serverfd, &hash, sizeof(hash),0);
+				if(n!=sizeof(hash))
 				{
-					printf("Error reading cFileHash_response of file %s\n",
-						cFileHash.fileName);
+					printf("Error reading hash sent from server\n");
+					return 0;
+				}
+
+				n =recv(serverfd, &cFileHash_response, sizeof(cFileHash_response),0);
+				if(n!= sizeof(cFileHash_response))
+				{
+					printf("Error reading File Hash Response of file %s\n", cFileHash.fileName);
 					return 0;
 				}
 				else
 				{
-					printf("Received cFileHash_response of file %s \n",
-						cFileHash_response.fileName);
-					printf("Last Modified @ %s\n",
-						cFileHash_response.time_modified);
+					printf("Received cFileHash_response of file %s \n", cFileHash_response.fileName);
+					printf("Last Modified @ %s\n",cFileHash_response.time_modified);
 					printf("MD5 %01x%01x%01x%01x%01x%01x%01x%01x%01x%01x%01x%01x%01x%01x%01x%01x\n\n",
 						cFileHash_response.md5Context.digest[0],
 						cFileHash_response.md5Context.digest[1],
@@ -688,8 +704,6 @@ int client(int portnum, int fd1, char *IP)
 				}
 			}
 		}
-
-
 		else if(strcmp(clientInput, "IndexGet") == 0)
 		{
 			char option[1000];
@@ -783,6 +797,7 @@ int client(int portnum, int fd1, char *IP)
 	return 0;
 
 }
+
 
 int server ( int portNo, int fdUpload)
 {
@@ -1073,6 +1088,7 @@ int server ( int portNo, int fdUpload)
     		
 		}
 }
+
 
 
 int main(int argc, char *argv[])
