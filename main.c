@@ -70,7 +70,7 @@ int GetNoOfFiles()
 
 		//int num_files = 0;
 
-	/*	struct dirent *result;
+		struct dirent *result;
 		DIR *fd;
 		char temp[100];
 
@@ -91,27 +91,28 @@ int GetNoOfFiles()
 			num_files++;
 		}
 		closedir(fd);
-	*/
-	  int num_files = 0;
+	
+	/*  int num_files = 0;
 	  FILE *fp;
 	  char path[1035];
 
-	  /* Open the command for reading. */
+	   //Open the command for reading. 
 	  fp = popen("ls -l ./shared/ | grep  ^- | wc -l", "r");
 	  if (fp == NULL) {
 	    printf("Failed to run command\n" );
 	    exit(1);
 	  }
 
-	  /* Read the output a line at a time - output it. */
+	  //Read the output a line at a time - output it. 
 	  while (fgets(path, sizeof(path)-1, fp) != NULL) {
 	    num_files = atoi(path);
 	  }
 
-	  /* close */
+	  // close 
 	  pclose(fp);
-
+*/
 		return num_files;
+		
 }
 
 
@@ -356,7 +357,7 @@ int client(int portnum, int fd1, char *IP)
  	   }
 
 	}*/
-	int check=0;
+	int check=0, sockfd = serverfd;
 
 	while((connect(serverfd,(struct sockaddr *) &serverAddress, sizeof(serverAddress)) < 0) && check < 50000)
 	{
@@ -939,7 +940,7 @@ int server ( int portNo, int fdUpload)
 
 	    		char result[100];
 	    		int inputfd = 0,w = 0;
-	    		printf("File Upload requestedt, Allow or Deny? \n");
+	    		printf("File Upload requested, Allow or Deny? \n");
 	    		read(inputfd, result, sizeof("Allow"));
 
 	    		if(strcmp(result, "Deny") == 0)
