@@ -682,9 +682,9 @@ int client(int portnum, int fd1, char *IP)
 				}
 				else
 				{
-					printf("Received cFileHash_response of file %s \n", cFileHash_response.fileName);
+					printf("Received cFileHash_response of file: %s \n", cFileHash_response.fileName);
 					printf("Last Modified @ %s\n",cFileHash_response.time_modified);
-					printf("MD5 %01x%01x%01x%01x%01x%01x%01x%01x%01x%01x%01x%01x%01x%01x%01x%01x\n\n",
+					printf("MD5: %01x%01x%01x%01x%01x%01x%01x%01x%01x%01x%01x%01x%01x%01x%01x%01x\n\n",
 						cFileHash_response.md5Context.digest[0],
 						cFileHash_response.md5Context.digest[1],
 						cFileHash_response.md5Context.digest[2],
@@ -845,7 +845,7 @@ int server ( int portNo, int fdUpload)
 		 // Take input for command to be performed
 		if((c = read(fdClient, &cmd, sizeof(int))) > 0)
 		{
-			printf("SERVER: Received command %s\n", cmd);
+			printf("SERVER: Received command %d\n", cmd);
 			c = 0;
 		}
 		
@@ -1018,7 +1018,7 @@ int server ( int portNo, int fdUpload)
 	    		if(readFileHashPtr != sizeof(sFileHash))
 	    			printf("SERVER: Error reading file hash!\n");
 	    		else
-	    			printf("SERVER: Commencing File Hash %s, sFileHash.type\n");
+	    			printf("SERVER: Commencing File Hash %s\n", sFileHash.type);
 
 	    		if(strcmp( sFileHash.type, "Verify" ) == 0)
 	    		{
